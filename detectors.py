@@ -62,8 +62,12 @@ class SahiDetector(Detector):
     """Sliced inference through SAHI. Works with any SAHI `model_type`
     (ultralytics, huggingface, torchvision, mmdet, ...)."""
 
+    # batch_size only changes speed (tiles per GPU forward pass), not the predictions.
+    NON_CACHE_KEYS = Detector.NON_CACHE_KEYS | {"batch_size"}
+
     DEFAULTS = {
         "model_type": "ultralytics",
+        "batch_size": 12,
         "slice_height": 640,
         "slice_width": 640,
         "overlap_height_ratio": 0.2,
@@ -110,6 +114,7 @@ class SahiDetector(Detector):
             postprocess_match_metric=c["postprocess_match_metric"],
             postprocess_match_threshold=c["postprocess_match_threshold"],
             postprocess_class_agnostic=c["postprocess_class_agnostic"],
+            batch_size=c["batch_size"],
             verbose=0,
         )
         return np.array(
