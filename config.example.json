@@ -1,0 +1,75 @@
+{
+  "_example": true,
+  "_readme": "Template only. Copy to config.json, fill in your paths and delete the '_example' line. main.py refuses to run any config containing '_example'.",
+
+  "output_dir": "output",
+
+  "dataset": {
+    "name": "my_test_split",
+    "type": "yolo_images",
+    "images": "path/to/dataset/images/test",
+    "labels": "path/to/dataset/labels/test",
+    "data_yaml": "path/to/dataset/data.yaml",
+    "sequences": null
+  },
+
+  "_dataset_video_alternative": {
+    "name": "my_video",
+    "type": "video",
+    "video": "path/to/video.mp4",
+    "labels": "path/to/video_labels",
+    "label_template": "frame_{:06d}",
+    "start_index": 1,
+    "only_labelled_frames": false
+  },
+
+  "evaluation": {
+    "map_iou_thresholds": {
+      "mAP@0.2": [0.2],
+      "mAP@0.5": [0.5],
+      "mAP@0.5:0.95": [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+    },
+    "pr_iou_thresholds": [0.2, 0.5],
+    "pr_conf_threshold": null,
+    "max_dets_per_image": 100,
+    "area_ranges": {
+      "all": [0, 1e10],
+      "small": [0, 1024],
+      "medium": [1024, 9216],
+      "large": [9216, 1e10]
+    }
+  },
+
+  "visualisation": {
+    "conf_threshold": null,
+    "video_fps": 30,
+    "track_max_distance_px": 50,
+    "track_max_frame_gap": 5,
+    "track_plot_background": true
+  },
+
+  "models": [
+    {
+      "name": "my_yolo_sahi",
+      "enabled": true,
+      "type": "sahi",
+      "model_type": "ultralytics",
+      "model_path": "path/to/weights/best.pt",
+      "confidence_threshold": 0.25,
+      "device": "cuda:0",
+      "slice_height": 640,
+      "slice_width": 640,
+      "overlap_height_ratio": 0.2,
+      "overlap_width_ratio": 0.2
+    },
+    {
+      "name": "my_yolo_fullframe",
+      "enabled": false,
+      "type": "ultralytics",
+      "model_path": "path/to/weights/best.pt",
+      "confidence_threshold": 0.25,
+      "device": "cuda:0",
+      "image_size": 640
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Editor
+.vscode/
+
+# Local configs (contain private paths) - config.example.json is the tracked template
+config.json
+config.*.json
+!config.example.json
+
+# Evaluation outputs (predictions, metrics, videos; metadata contains local paths)
+output/
