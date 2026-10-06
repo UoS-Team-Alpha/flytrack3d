@@ -32,7 +32,7 @@ from detectors import Detector, build_detector
 from metrics import COCO_AREA_RANGES, COCO_IOUS, evaluate_detections
 from visualise import save_track_plots, save_videos
 
-PRED_FILE = "predictions.json"
+PRED_DIR = "predictions"   # YOLO labels: <PRED_DIR>/<frame key>.txt, "class xc yc w h conf" (normalised)
 PARAMS_FILE = "prediction_params.json"
 
 
@@ -50,7 +50,7 @@ def find_cached_predictions(output_root: Path, cache_key: str) -> Path | None:
     for params_path in output_root.glob(f"run_*/**/{PARAMS_FILE}"):  # single and batch layouts
         try:
             if json.loads(params_path.read_text()).get("cache_key") == cache_key \
-                    and (params_path.parent / PRED_FILE).is_file():
+                    and (params_path.parent / PRED_DIR).is_dir():
                 hits.append(params_path.parent)
         except (json.JSONDecodeError, OSError):
             continue
@@ -58,24 +58,32 @@ def find_cached_predictions(output_root: Path, cache_key: str) -> Path | None:
     return max(hits, key=lambda p: p.relative_to(output_root).parts[0]) if hits else None
 
 
-def save_predictions(path: Path, preds: dict[str, np.ndarray], class_names: dict, timing: dict) -> None:
-    payload = {
-        "format": "xyxy_pixels_score_class",
-        "class_names": {str(k): v for k, v in class_names.items()},
-        "timing": timing,
-        "predictions": {
-            k: [[round(float(x), 2) for x in r[:4]] + [round(float(r[4]), 5), int(r[5])] for r in v]
-            for k, v in preds.items()
-        },
-    }
-    path.write_text(json.dumps(payload, separators=(",", ":")))
+def save_predictions(pred_dir: Path, ds: Dataset, preds: dict[str, np.ndarray], class_names: dict) -> None:
+    """One YOLO .txt per frame (empty file = evaluated, no detections) plus a data.yaml."""
+    for f in ds.frames:
+        p = preds.get(f.key, np.zeros((0, 6)))
+        path = pred_dir / f"{f.key}.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        x1, y1, x2, y2, score, cls = p.T
+        rows = zip(cls, (x1 + x2) / 2 / f.width, (y1 + y2) / 2 / f.height,
+                   (x2 - x1) / f.width, (y2 - y1) / f.height, score)
+        path.write_text("".join(f"{int(c)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f} {sc:.5f}\n"
+                                for c, xc, yc, w, h, sc in rows))
+    names = "".join(f"  {k}: {v}\n" for k, v in sorted(class_names.items()))
+    (pred_dir / "data.yaml").write_text(f"names:\n{names}" if names else "names: {}\n")
 
 
-def load_predictions(path: Path) -> tuple[dict[str, np.ndarray], dict, dict]:
-    payload = json.loads(path.read_text())
-    preds = {k: np.array(v, dtype=np.float64).reshape(-1, 6) for k, v in payload["predictions"].items()}
-    class_names = {int(k): v for k, v in payload.get("class_names", {}).items()}
-    return preds, class_names, payload.get("timing", {})
+def load_predictions(pred_dir: Path, ds: Dataset) -> dict[str, np.ndarray]:
+    """Read YOLO prediction files back to {key: (M, 6) x1, y1, x2, y2, score, class} in pixels."""
+    preds = {}
+    for f in ds.frames:
+        path = pred_dir / f"{f.key}.txt"
+        rows = [ln.split() for ln in path.read_text().splitlines() if ln.strip()] if path.is_file() else []
+        a = np.array(rows, dtype=np.float64).reshape(-1, 6)
+        cls, xc, yc, w, h, score = a.T
+        preds[f.key] = np.stack([(xc - w / 2) * f.width, (yc - h / 2) * f.height,
+                                 (xc + w / 2) * f.width, (yc + h / 2) * f.height, score, cls], axis=1)
+    return preds
 
 
 def run_inference(detector: Detector, ds: Dataset, leave: bool = True) -> tuple[dict[str, np.ndarray], dict]:
@@ -107,15 +115,18 @@ def get_predictions(detector: Detector, ds: Dataset, output_root: Path, model_di
 
     if cached_dir:
         tqdm.write(f"  [{detector.name}] Reusing cached predictions from {cached_dir.relative_to(output_root)}")
-        preds, class_names, timing = load_predictions(cached_dir / PRED_FILE)
-        shutil.copy2(cached_dir / PRED_FILE, model_dir / PRED_FILE)
+        cached = json.loads((cached_dir / PARAMS_FILE).read_text())
+        class_names = {int(k): v for k, v in cached.get("class_names", {}).items()}
+        timing = cached.get("timing", {})
+        shutil.copytree(cached_dir / PRED_DIR, model_dir / PRED_DIR, dirs_exist_ok=True)
+        preds = load_predictions(model_dir / PRED_DIR, ds)
         source = str(cached_dir.relative_to(output_root))
     else:
         preds, timing = run_inference(detector, ds, leave=leave)
         class_names = detector.class_names
-        save_predictions(model_dir / PRED_FILE, preds, class_names, timing)
+        save_predictions(model_dir / PRED_DIR, ds, preds, class_names)
         # Evaluate the saved (rounded) values so fresh and cached runs give identical metrics.
-        preds, _, _ = load_predictions(model_dir / PRED_FILE)
+        preds = load_predictions(model_dir / PRED_DIR, ds)
         source = "inference"
 
     info = {
