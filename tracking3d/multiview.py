@@ -124,7 +124,7 @@ def choose_run(output_root: Path, cam_cfg: dict, run: str | None = None) -> RunI
 
     runs = list_runs(output_root, cam_cfg)
     if not runs:
-        raise SystemExit(f"No evaluation runs in {output_root}. Run main_evaluate2d.py with a batch config first.")
+        raise SystemExit(f"No runs in {output_root}. Run main_evaluate2d.py with a batch config, or main_inference2d.py, first.")
     n_cams = len(cam_cfg.get("views", {}))
     width = max(len(r.name) for r in runs) + 2
     print(f"\nEvaluation runs in {output_root}  (each run = one recording session, views = input folders)")

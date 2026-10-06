@@ -11,6 +11,9 @@ Pipeline per model:
 Single dataset:  run_<datetime>/<model>/...
 Batch dataset:   run_<datetime>/<input name>/<model>/...  one folder per
                  input/label pair, plus run-level metrics pooled over all inputs.
+Inference only:  run_<datetime>/<input name>/<model>/predictions/  (run_inference_only,
+                 no ground truth or metrics; same layout as a batch run, so the 3D
+                 scripts can use it).
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
-from .datasets import Dataset, dataset_summary, discover_batch, iter_frame_images, load_dataset
+from .datasets import Dataset, dataset_summary, discover_batch, discover_inputs, iter_frame_images, load_dataset
 from .detectors import Detector, build_detector
 from .metrics import COCO_AREA_RANGES, COCO_IOUS, evaluate_detections
 from .visualise import save_track_plots, save_videos
@@ -541,3 +544,63 @@ def run_batch(batch_cfg: dict, run_dir: Path, metadata: dict, detectors: list[De
     metadata["models"] = {n: _model_meta(p["info"]) for n, p in pooled.items()}
     metadata["inputs"] = {n: {"dataset": item_info[n], "models": {m: _model_meta(o["info"]) for m, o in out.items()}}
                           for n, out in item_out.items()}
+
+
+# ----------------------------------------------------------------------------- inference only
+
+def inference_inputs(ds_cfg: dict, inputs: str | None = None) -> list[dict]:
+    """Per-input dataset configs, without labels: every input in `inputs` (a folder of videos /
+    frame folders) if given, else in the config's dataset (a batch's inputs, or its one video /
+    image folder). Batch-level settings such as label_template and start_index are kept."""
+    cfg = {k: v for k, v in ds_cfg.items() if k != "labels"}
+    if inputs:
+        return discover_inputs({**cfg, "inputs": inputs, "items": None})
+    if cfg.get("type") == "batch":
+        return discover_inputs(cfg)
+    source = Path(cfg.get("video") or cfg["images"])
+    return [{**cfg, "name": source.stem if source.is_file() else source.name}]
+
+
+def run_inference_only(config: dict, force_inference: bool = False, only_models: list[str] | None = None,
+                       inputs: str | None = None) -> Path:
+    """Predictions for every input, no evaluation. Cached predictions (from evaluation or
+    inference runs, same detector and frames) are reused."""
+    output_root = Path(config.get("output_dir", "output"))
+    detectors = select_detectors(config, only_models)  # fail fast before creating a run folder
+    items = inference_inputs(config["dataset"], inputs)
+    if not items:
+        raise SystemExit(f"No videos or frame folders found in {inputs or config['dataset'].get('inputs')}")
+    run_dir = output_root / f"run_{datetime.now():%Y%m%d-%H%M%S}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "config.json").write_text(json.dumps(config, indent=2))
+    metadata = {"run": run_dir.name, "kind": "inference", "started": datetime.now().isoformat(timespec="seconds"),
+                "environment": environment_info(), "inputs": {}, "skipped": []}
+
+    print(f"Inference on {len(items)} input(s), {len(detectors)} model(s)")
+    for i, item in enumerate(items, 1):
+        name = item["name"]
+        print(f"\n[{i}/{len(items)}] {name}")
+        try:
+            ds = load_dataset(item)
+        except Exception as e:  # one bad input shouldn't sink the whole run
+            print(f"  ERROR loading input, skipping: {e}")
+            metadata["skipped"].append(f"Skipping {name}: {e}")
+            continue
+        models = {}
+        for det in detectors:
+            model_dir = run_dir / name / det.name
+            model_dir.mkdir(parents=True, exist_ok=True)
+            preds, info = get_predictions(det, ds, output_root, model_dir, force_inference)
+            n = sum(len(p) for p in preds.values())
+            print(f"    {det.name:<28} {len(ds.frames)} frames, {n} detections  "
+                  f"[{info['timing'].get('ms_per_frame')} ms/frame, "
+                  f"{'cached' if info['prediction_source'] != 'inference' else 'inference'}]")
+            models[det.name] = _model_meta(info)
+        metadata["inputs"][name] = {"dataset": dataset_summary(ds, {}), "models": models}
+
+    metadata["finished"] = datetime.now().isoformat(timespec="seconds")
+    (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, default=str))
+    if metadata["skipped"]:
+        print("\nSkipped:\n" + "\n".join(f"  {s}" for s in metadata["skipped"]))
+    print(f"\nSaved predictions to {run_dir.resolve()}")
+    return run_dir

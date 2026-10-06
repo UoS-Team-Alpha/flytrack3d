@@ -15,7 +15,8 @@ Supported dataset types (see config.json):
 
 "labels" may point straight at the folder of .txt files, or at an export root
 that contains it (e.g. a CVAT YOLO export: <root>/labels/train/*.txt). If no
-"data_yaml" is given, a data.yaml in that root is used for class names.
+"data_yaml" is given, a data.yaml in that root is used for class names. Without
+"labels" (inference only, see main_inference2d.py) every frame has no ground truth.
 """
 
 from __future__ import annotations
@@ -126,7 +127,7 @@ def read_class_names(data_yaml: str | Path | None) -> dict[int, str]:
 
 def _load_yolo_images(cfg: dict) -> list[Frame]:
     images_root = Path(cfg["images"])
-    labels_root = resolve_label_dir(cfg["labels"])
+    labels_root = resolve_label_dir(cfg["labels"]) if cfg.get("labels") else None
     sequences = cfg.get("sequences")  # optional whitelist of sub-folder names
     prefix = cfg.get("key_prefix")    # set in batch mode so keys are "<input name>/<frame>"
 
@@ -141,10 +142,12 @@ def _load_yolo_images(cfg: dict) -> list[Frame]:
         rel = p.relative_to(images_root).with_suffix("")
         with Image.open(p) as im:  # header-only read, fast
             w, h = im.size
-        label_path = labels_root / rel.with_suffix(".txt")
-        if not label_path.is_file():  # nested images (e.g. images/train/) with a flat labels folder
-            label_path = labels_root / f"{p.stem}.txt"
-        gt = read_yolo_labels(label_path, w, h)
+        gt = np.zeros((0, 5))
+        if labels_root:
+            label_path = labels_root / rel.with_suffix(".txt")
+            if not label_path.is_file():  # nested images (e.g. images/train/) with a flat labels folder
+                label_path = labels_root / f"{p.stem}.txt"
+            gt = read_yolo_labels(label_path, w, h)
         key = f"{prefix}/{rel.as_posix()}" if prefix else rel.as_posix()
         frames.append(Frame(key=key, width=w, height=h, gt=gt, image_path=str(p)))
     return frames
@@ -152,10 +155,10 @@ def _load_yolo_images(cfg: dict) -> list[Frame]:
 
 def _load_video(cfg: dict) -> list[Frame]:
     video = Path(cfg["video"])
-    labels_root = resolve_label_dir(cfg["labels"])
+    labels_root = resolve_label_dir(cfg["labels"]) if cfg.get("labels") else None
     template = cfg.get("label_template", "frame_{:06d}")
     start = int(cfg.get("start_index", 1))  # label number of the first video frame
-    only_labelled = bool(cfg.get("only_labelled_frames", False))
+    only_labelled = bool(cfg.get("only_labelled_frames", False)) and labels_root is not None
 
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
@@ -169,15 +172,17 @@ def _load_video(cfg: dict) -> list[Frame]:
     for i in range(n):
         stem = template.format(i + start)
         stems.add(stem)
-        label_path = labels_root / f"{stem}.txt"
+        label_path = labels_root / f"{stem}.txt" if labels_root else None
         if only_labelled and not label_path.is_file():
             continue
         frames.append(Frame(
             key=f"{video.stem}/{stem}", width=w, height=h,
-            gt=read_yolo_labels(label_path, w, h),
+            gt=read_yolo_labels(label_path, w, h) if label_path else np.zeros((0, 5)),
             video_path=str(video), video_index=i,
         ))
 
+    if labels_root is None:
+        return frames
     label_stems = {p.stem for p in labels_root.glob("*.txt") if p.name not in SPLIT_LISTS}
     if label_stems and not label_stems & stems:
         raise ValueError(f"No label files in {labels_root} match video frames "
@@ -197,7 +202,7 @@ def load_dataset(cfg: dict) -> Dataset:
     if kind not in LOADERS:
         raise ValueError(f"Unknown dataset type '{kind}'. Options: {list(LOADERS) + ['batch']}")
     frames = LOADERS[kind](cfg)
-    data_yaml = cfg.get("data_yaml") or find_data_yaml(resolve_label_dir(cfg["labels"]))
+    data_yaml = cfg.get("data_yaml") or (find_data_yaml(resolve_label_dir(cfg["labels"])) if cfg.get("labels") else None)
     return Dataset(
         name=cfg.get("name", kind),
         frames=frames,
@@ -218,24 +223,19 @@ def _match_label_dir(name: str, label_dirs: list[Path]) -> tuple[Path | None, li
     return (cands[0] if len(cands) == 1 else None), cands
 
 
-def discover_batch(cfg: dict) -> tuple[list[dict], list[str]]:
-    """Pair every input (video file or folder of frames) in cfg["inputs"] with a
-    label folder in cfg["labels"]. Returns (per-pair dataset configs, warnings).
-
-    Per-pair configs inherit the batch-level settings (label_template, start_index,
-    only_labelled_frames, data_yaml, ...), so each one can go straight to load_dataset."""
-    inputs_root, labels_root = Path(cfg["inputs"]), Path(cfg["labels"])
-    for p in (inputs_root, labels_root):
-        if not p.is_dir():
-            raise FileNotFoundError(f"Batch folder not found: {p}")
-    only = set(cfg.get("items") or [])  # optional whitelist of input names
-
+def discover_inputs(cfg: dict) -> list[dict]:
+    """Every input (video file or folder of frames) in cfg["inputs"], as a per-input dataset
+    config without labels. Per-input configs inherit the batch-level settings
+    (label_template, start_index, ...); cfg["items"] optionally whitelists input names."""
+    inputs_root = Path(cfg["inputs"])
+    if not inputs_root.is_dir():
+        raise FileNotFoundError(f"Batch folder not found: {inputs_root}")
+    only = set(cfg.get("items") or [])
     inputs = sorted(p for p in inputs_root.iterdir()
                     if (p.is_file() and p.suffix.lower() in VIDEO_EXTS) or p.is_dir())
-    label_dirs = sorted(p for p in labels_root.iterdir() if p.is_dir())
     shared = {k: v for k, v in cfg.items() if k not in {"type", "name", "inputs", "labels", "items"}}
 
-    pairs, warnings, used, names = [], [], set(), set()
+    out, names = [], set()
     for item in inputs:
         name = item.stem if item.is_file() else item.name
         if only and name not in only:
@@ -243,22 +243,37 @@ def discover_batch(cfg: dict) -> tuple[list[dict], list[str]]:
         if name in names:
             raise ValueError(f"Two inputs are both named '{name}' in {inputs_root}")
         names.add(name)
-        label_dir, cands = _match_label_dir(name, label_dirs)
+        if item.is_file():
+            out.append({**shared, "type": "video", "video": str(item), "name": name})
+        else:
+            out.append({**shared, "type": "yolo_images", "images": str(item), "key_prefix": name, "name": name})
+    return out
+
+
+def discover_batch(cfg: dict) -> tuple[list[dict], list[str]]:
+    """Pair every input in cfg["inputs"] (see discover_inputs) with a label folder in
+    cfg["labels"]. Returns (per-pair dataset configs, warnings); each config can go
+    straight to load_dataset."""
+    inputs = discover_inputs(cfg)
+    labels_root = Path(cfg["labels"])
+    if not labels_root.is_dir():
+        raise FileNotFoundError(f"Batch folder not found: {labels_root}")
+    label_dirs = sorted(p for p in labels_root.iterdir() if p.is_dir())
+
+    pairs, warnings, used = [], [], set()
+    for pair in inputs:
+        label_dir, cands = _match_label_dir(pair["name"], label_dirs)
         if label_dir is None:
             why = "no label folder" if not cands else f"ambiguous label folders {[c.name for c in cands]}"
-            warnings.append(f"Skipping {item.name}: {why}")
+            warnings.append(f"Skipping {Path(pair.get('video') or pair['images']).name}: {why}")
             continue
         used.add(label_dir)
-        if item.is_file():
-            pair = {**shared, "type": "video", "video": str(item)}
-        else:
-            pair = {**shared, "type": "yolo_images", "images": str(item), "key_prefix": name}
-        pairs.append({**pair, "name": name, "labels": str(label_dir)})
+        pairs.append({**pair, "labels": str(label_dir)})
     for d in label_dirs:
-        if d not in used and not only:
+        if d not in used and not cfg.get("items"):
             warnings.append(f"Label folder {d.name} has no matching input")
     if not pairs:
-        raise FileNotFoundError(f"No input/label pairs found between {inputs_root} and {labels_root}")
+        raise FileNotFoundError(f"No input/label pairs found between {cfg['inputs']} and {labels_root}")
     return pairs, warnings
 
 
