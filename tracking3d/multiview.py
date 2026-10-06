@@ -242,6 +242,28 @@ def load_views(run: RunInfo, model: str, cam_cfg: dict, source: str = "pred",
     return views
 
 
+def remove_static_detections(view: View, radius: float, min_fraction: float) -> int:
+    """Drop detections at a spot the detector fires on in >= min_fraction of the view's frames
+    (within radius px) - background clutter (specks, cage, fruit features), not a moving animal.
+    Left in, matching spots in several views triangulate to a fixed 3D point every frame and
+    tracks lock onto it. Returns the number of detections removed."""
+    frames = sorted(view.dets)
+    if not frames:
+        return 0
+    pts = np.vstack([view.dets[f][:, :2] for f in frames])
+    occupied = np.zeros(len(pts), int)   # frames with a detection within radius of each detection
+    for f in frames:
+        occupied += (np.linalg.norm(pts[:, None] - view.dets[f][None, :, :2], axis=2) <= radius).any(axis=1)
+    static = occupied >= min_fraction * (frames[-1] - frames[0] + 1)
+    splits = np.cumsum([len(view.dets[f]) for f in frames])[:-1]
+    for f, drop in zip(frames, np.split(static, splits)):
+        if drop.all():
+            del view.dets[f], view.raw[f]
+        elif drop.any():
+            view.dets[f], view.raw[f] = view.dets[f][~drop], view.raw[f][~drop]
+    return int(static.sum())
+
+
 def views_summary(views: list[View]) -> list[str]:
     lines = []
     for v in views:
@@ -272,6 +294,8 @@ def tracking_settings(config: dict) -> dict:
         "extend_frames": 15,
         "merge_distance": 10.0,
         "fruit_xyz": None,
+        "static_radius_px": 6.0,
+        "static_min_fraction": 0.3,
         "anchor_pixel_sigma": 3.0,
         "anchor_gate_px": 40.0,
         "anchor_frame_window": 30,
@@ -322,6 +346,12 @@ def open_session(config: dict, run: str | None, model: str | None, source: str,
     print(f"\nDetections ({'ground truth' if source == 'gt' else chosen}"
           f"{'' if source == 'gt' or settings['conf_threshold'] is None else f', conf >= {settings['conf_threshold']}'}):")
     print("\n".join(views_summary(views)))
+    if source == "pred" and settings["static_min_fraction"]:
+        removed = [remove_static_detections(v, settings["static_radius_px"], settings["static_min_fraction"])
+                   for v in views]
+        print(f"\nStatic clutter removed (same spot within {settings['static_radius_px']} px in >= "
+              f"{settings['static_min_fraction']:.0%} of frames): "
+              + ", ".join(f"{v.name} {n}" for v, n in zip(views, removed)))
     return Session(info, chosen, source, views, settings)
 
 
