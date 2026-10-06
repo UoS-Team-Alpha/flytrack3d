@@ -111,7 +111,10 @@ def _accel_error(this: gtsam.CustomFactor, values: gtsam.Values, H: list[np.ndar
 
 
 def _solve(frames: np.ndarray, init: np.ndarray, obs: list[tuple[int, int, int]], views: list[View],
-           gcams: list, s: dict, with_sigma: bool = False) -> tuple[np.ndarray, np.ndarray]:
+           gcams: list, s: dict, with_sigma: bool = False,
+           anchors: list[tuple[int, int, np.ndarray]] = ()) -> tuple[np.ndarray, np.ndarray]:
+    """anchors: (k, view, undistorted xy) hand annotations - plain Gaussian reprojection factors
+    with sigma anchor_pixel_sigma (not robust: they are trusted, unlike detections)."""
     graph, values = gtsam.NonlinearFactorGraph(), gtsam.Values()
     pix = gtsam.noiseModel.Robust.Create(gtsam.noiseModel.mEstimator.Huber.Create(s["huber_k"]),
                                          gtsam.noiseModel.Isotropic.Sigma(2, s["pixel_sigma"]))
@@ -123,6 +126,10 @@ def _solve(frames: np.ndarray, init: np.ndarray, obs: list[tuple[int, int, int]]
     for k, v, j in obs:
         xy = views[v].dets[int(frames[k])][j, :2]
         graph.add(gtsam.TriangulationFactorCal3_S2(gcams[v], gtsam.Point2(*xy), pix, X(k)))
+    if anchors:
+        anchor_noise = gtsam.noiseModel.Isotropic.Sigma(2, s["anchor_pixel_sigma"])
+        for k, v, xy in anchors:
+            graph.add(gtsam.TriangulationFactorCal3_S2(gcams[v], gtsam.Point2(*xy), anchor_noise, X(k)))
     for k in range(1, len(frames) - 1):
         graph.add(gtsam.CustomFactor(acc, [X(k - 1), X(k), X(k + 1)], _accel_error))
 
@@ -133,18 +140,36 @@ def _solve(frames: np.ndarray, init: np.ndarray, obs: list[tuple[int, int, int]]
 
     sigma = np.full(len(frames), np.nan)
     if with_sigma:
-        try:
-            marg = gtsam.Marginals(graph, result)
-            sigma = np.array([np.sqrt(np.trace(marg.marginalCovariance(X(k))) / 3) for k in range(len(frames))])
-        except RuntimeError:
-            pass
+        sigma = _position_sigma(graph, result, len(frames))
     return xyz, sigma
+
+
+def _position_sigma(graph: gtsam.NonlinearFactorGraph, result: gtsam.Values, n: int) -> np.ndarray:
+    """1-sigma (RMS over axes) of every X(k). gtsam.Marginals uses a Cholesky factorisation,
+    which fails when long undetected gaps leave the system only weakly determined, so the
+    dense information matrix (X(0)..X(n-1) in order) is inverted instead."""
+    try:
+        return np.array([np.sqrt(np.trace(m) / 3) for m in
+                         (gtsam.Marginals(graph, result).marginalCovariance(X(k)) for k in range(n))])
+    except RuntimeError:
+        pass
+    try:
+        ordering = gtsam.Ordering()
+        for k in range(n):
+            ordering.push_back(X(k))
+        info = graph.linearize(result).hessian(ordering)[0]
+        cov_diag = np.diag(np.linalg.pinv(info, hermitian=True)).reshape(n, 3)
+        return np.sqrt(np.clip(cov_diag, 0, None).mean(axis=1))
+    except (RuntimeError, np.linalg.LinAlgError):
+        return np.full(n, np.nan)
 
 
 # ----------------------------------------------------------------------------- association
 
-def _associate(frames: np.ndarray, xyz: np.ndarray, views: list[View], gate: float) -> list[tuple[int, int, int]]:
-    """Nearest detection within `gate` px of the track's projection, per frame and view."""
+def _associate(frames: np.ndarray, xyz: np.ndarray, views: list[View], gate: float,
+               claimed: set[tuple[int, int, int]] | None = None) -> list[tuple[int, int, int]]:
+    """Nearest detection within `gate` px of the track's projection, per frame and view.
+    Detections in `claimed` ((frame, view, det index), used by another track) are skipped."""
     obs = []
     for v, view in enumerate(views):
         proj, depth = view.camera.project(xyz), view.camera.depth(xyz)
@@ -153,6 +178,8 @@ def _associate(frames: np.ndarray, xyz: np.ndarray, views: list[View], gate: flo
             if d is None or depth[k] <= 0:
                 continue
             dist = np.linalg.norm(d[:, :2] - proj[k], axis=1)
+            if claimed:
+                dist[[j for j in range(len(d)) if (int(f), v, j) in claimed]] = np.inf
             j = int(dist.argmin())
             if dist[j] <= gate:
                 obs.append((k, v, j))

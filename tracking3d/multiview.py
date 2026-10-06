@@ -56,6 +56,7 @@ class View:
     raw: dict[int, np.ndarray]              # frame -> (N, 3) x, y, conf in raw pixels
     dets: dict[int, np.ndarray]             # frame -> (N, 3) x, y, conf undistorted
     background: Frame | None = None         # first frame, for plots
+    source: dict = field(default_factory=dict)  # the input's dataset config (video / images, start_index)
 
     @property
     def name(self) -> str:
@@ -236,7 +237,8 @@ def load_views(run: RunInfo, model: str, cam_cfg: dict, source: str = "pred",
                 f = fno + camera.frame_offset
                 raw[f] = c
                 dets[f] = np.hstack([camera.undistort(c[:, :2]), c[:, 2:3]])
-        views.append(View(camera, inp, size, raw, dets, _background(meta.get("source", {}), size)))
+        src = meta.get("source", {})
+        views.append(View(camera, inp, size, raw, dets, _background(src, size), src))
     return views
 
 
@@ -270,6 +272,11 @@ def tracking_settings(config: dict) -> dict:
         "extend_frames": 15,
         "merge_distance": 10.0,
         "fruit_xyz": None,
+        "anchor_pixel_sigma": 3.0,
+        "anchor_gate_px": 40.0,
+        "anchor_frame_window": 30,
+        "anchor_max_px_per_frame": 40.0,
+        "guided_iterations": 5,
     }
     user = {k: v for k, v in config.get("tracking3d", {}).items() if not k.startswith("_")}
     return {**defaults, **user}

@@ -116,9 +116,11 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str, frui
 
 
 def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarray | None = None,
-                   fruit=None, gt_tracks: list[np.ndarray] | None = None, close: bool = True):
+                   fruit=None, gt_tracks: list[np.ndarray] | None = None,
+                   anchors: list[tuple[int, str, np.ndarray]] | None = None, close: bool = True):
     """Factor-graph tracks as lines (entry = triangle, exit = square); raw triangulated points
-    grey; optional ground-truth tracks in green."""
+    grey; optional ground-truth tracks in green; optional annotated points
+    (track id, "start" / "end", xyz) as large plus / cross markers."""
     gt_tracks = gt_tracks or []
     data = np.vstack([t.xyz for t in tracks] + [t[:, 1:4] for t in gt_tracks])
     fig, ax3d, ortho, rig = _scene_figure(title, data, cameras, fruit)
@@ -142,6 +144,8 @@ def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarr
             ax.plot(t.xyz[:, i], t.xyz[:, j], color=col, lw=PRED_TRACK_LW, zorder=3)
             ax.plot(t.xyz[0, i], t.xyz[0, j], "^", color=col, mec="black", ms=8)
             ax.plot(t.xyz[-1, i], t.xyz[-1, j], "s", color=col, mec="black", ms=6)
+    if anchors:
+        _draw_anchors(ax3d, ortho, rig, anchors)
     if tracks:
         ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
     fig.savefig(out_path, dpi=110)
@@ -150,7 +154,24 @@ def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarr
     return fig
 
 
-def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100) -> list[Path]:
+ANCHOR_MARKERS = {"start": "P", "end": "X"}   # annotated start / end points
+
+
+def _draw_anchors(ax3d, ortho, rig, anchors) -> None:
+    labelled = set()
+    for tid, kind, xyz in anchors:
+        col = TRACK_COLOURS[(tid - 1) % len(TRACK_COLOURS)]
+        label = f"annotated {kind}" if kind not in labelled else None
+        labelled.add(kind)
+        kw = dict(color=col, marker=ANCHOR_MARKERS[kind], edgecolor="black", linewidth=1.2, zorder=6)
+        ax3d.scatter(*xyz, s=170, label=label, **kw)
+        rig.scatter(*xyz, s=120, **kw)
+        for ax, (_, i, j) in zip(ortho, PANELS):
+            ax.scatter(xyz[i], xyz[j], s=170, **kw)
+
+
+def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100,
+                            annotations: dict[str, list[tuple[int, str, float, float]]] | None = None) -> list[Path]:
     """Per camera: first frame, every raw detection (grey) and the 3D tracks projected back
     through the full camera model (with distortion). Tracks that sit on the detections
     confirm the calibration; a constant offset in one view points at its extrinsics."""
@@ -172,6 +193,11 @@ def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100) -> lis
             ax.plot(uv[:, 0], uv[:, 1], "-", color=col, lw=1.6, label=f"track {t.id}")
             if len(uv):
                 ax.plot(*uv[0], "^", color=col, mec="black", ms=9)
+        for tid, kind, x, y in (annotations or {}).get(v.name, []):
+            col = TRACK_COLOURS[(tid - 1) % len(TRACK_COLOURS)]
+            ax.plot(x, y, ANCHOR_MARKERS[kind], color=col, mec="black", mew=1.2, ms=15, zorder=6)
+            ax.annotate(f"#{tid} {kind}", (x, y), xytext=(10, -10), textcoords="offset points", fontsize=11,
+                        color="black", bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.8))
         ax.set_xlim(0, w)
         ax.set_ylim(h, 0)
         ax.set_xticks([])

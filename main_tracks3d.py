@@ -20,8 +20,6 @@ Outputs go to <run>/3d/<model or ground_truth>/tracks/:
 """
 
 import argparse
-import csv
-import json
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +27,7 @@ import numpy as np
 from evaluate2d.config import load_config
 from tracking3d.factor_graph import build_tracks
 from tracking3d.multiview import ground_truth_tracks, open_session
+from tracking3d.report import write_track_outputs
 from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session
 from tracking3d.visualise import plot_tracks_3d, save_reprojection_plots, use_interactive_backend
 
@@ -43,34 +42,6 @@ N_TRACKS = None      # keep the n best tracks; None = tracking3d.n_tracks (null 
 GT_OVERLAY = True    # draw the run's ground truth (triangulated + linked, no factor graph) in green
 SHOW = True          # open an interactive (rotatable) 3D window after saving
 # =====================================================================================
-
-
-def format_summary(session, tracks, summaries, s) -> str:
-    lines = [f"Session   : {session.run.name}",
-             f"Detections: {session.label}",
-             f"Views     : " + ", ".join(f"{v.name} <- {v.input_name}" for v in session.views),
-             f"Settings  : " + ", ".join(f"{k}={v}" for k, v in s.items()), "",
-             f"{len(tracks)} track(s), best supported first", ""]
-    fruit = s.get("fruit_xyz") is not None
-    head = f"  {'id':>3}{'frames':>13}{'len':>6}{'dets':>6}{'3-view':>8}{'2-view':>8}{'1-view':>8}" \
-           f"{'reproj':>8}{'sigma':>8}{'path':>10}  {'entry xyz':<26}{'+/-':>7}{'2+ views @':>11}"
-    lines.append(head + ("            fruit min @frame" if fruit else ""))
-    for t in summaries:
-        fv = t["frames_by_views"]
-        row = (f"  {t['id']:>3}{t['start_frame']:>6}-{t['end_frame']:<6}{t['frames']:>6}{t['detections']:>6}"
-               f"{fv.get(3, 0):>8}{fv.get(2, 0):>8}{fv.get(1, 0):>8}"
-               f"{t['reprojection_px_median'] or 0:>8.2f}{t['sigma_median'] or float('nan'):>8.2f}"
-               f"{t['path_length']:>10.1f}  {'(' + ', '.join(f'{v:.1f}' for v in t['entry_xyz']) + ')':<26}"
-               f"{t['entry_sigma'] or float('nan'):>7.1f}{t['first_multiview_frame']:>11}")
-        if fruit:
-            row += f"  {t['fruit_closest_distance']:>10.1f} @{t['fruit_closest_frame']}"
-        lines.append(row)
-    lines += ["", "  frames by views: frames where the track was detected in 3 / 2 / 1 cameras "
-                  "(others are bridged by the motion prior)",
-              "  reproj = median px error of its detections; sigma = median 1-sigma 3D uncertainty",
-              "  entry +/- = 1-sigma at the entry point (large while only one camera sees it: depth then",
-              "  comes from the motion prior alone); 2+ views @ = first frame seen by two or more cameras"]
-    return "\n".join(lines)
 
 
 def main():
@@ -109,19 +80,9 @@ def main():
                          "raising link_max_distance (world units per frame).")
 
     fruit = np.asarray(s["fruit_xyz"], float) if s.get("fruit_xyz") else None
-    summaries = [t.summary(fruit) for t in tracks]
     out_dir = session.out_dir("tracks")
-    report = format_summary(session, tracks, summaries, s)
+    report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} track(s), best supported first")
     print("\n" + report)
-    (out_dir / "summary.txt").write_text(report + "\n")
-    (out_dir / "tracks.json").write_text(json.dumps({"run": session.run.name, "detections": session.label,
-                                                     "settings": s, "tracks": summaries}, indent=2))
-    with open(out_dir / "tracks.csv", "w", newline="") as fh:
-        w = csv.writer(fh)
-        w.writerow(["track", "frame", "x", "y", "z", "sigma", "n_views"])
-        for t in tracks:
-            for f, p, sg, nv in zip(t.frames, t.xyz, t.sigma, t.views):
-                w.writerow([t.id, int(f), *p.round(4), round(float(sg), 4), int(nv)])
 
     pts = np.array([[f, *p.xyz, len(p.views)] for f, ps in points.items() for p in ps])
     reproj = save_reprojection_plots(tracks, views, out_dir / "reprojection")
