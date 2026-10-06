@@ -2,10 +2,10 @@
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python main.py --config other.json
-    python main.py --models yolo_s_12_base_sahi yolo_s_11_p2_sahi
-    python main.py --force-inference --video --no-track-plot
-    python main.py --config config.batch.json    # folder of videos + folder of labels
+    python main_evaluate2d.py --config other.json
+    python main_evaluate2d.py --models yolo_s_12_base_sahi yolo_s_11_p2_sahi
+    python main_evaluate2d.py --force-inference --video --no-track-plot
+    python main_evaluate2d.py --config config.batch.json    # folder of videos + folder of labels
 
 Dataset types: a folder of images ("yolo_images"), one video ("video"), or a
 folder of videos / frame folders paired with a folder of label folders
@@ -13,10 +13,10 @@ folder of videos / frame folders paired with a folder of label folders
 """
 
 import argparse
-import json
 from pathlib import Path
 
-from evaluate_models import run_evaluation
+from evaluate2d.config import load_config
+from evaluate2d.evaluate_models import run_evaluation
 
 HERE = Path(__file__).resolve().parent
 
@@ -27,18 +27,6 @@ FORCE_INFERENCE = False    # True = ignore cached predictions and re-run the det
 SAVE_VIDEO = False         # annotated MP4 per sequence (GT green, predictions magenta)
 SAVE_TRACK_PLOT = True     # frame-sized PNG per sequence with GT vs predicted tracks
 # =====================================================================================
-
-PATH_KEYS = {"images", "labels", "video", "inputs", "data_yaml", "model_path", "config_path", "output_dir"}
-
-
-def resolve_paths(obj, base: Path):
-    """Make relative paths in the config relative to the config file's folder."""
-    if isinstance(obj, dict):
-        return {k: (str((base / v).resolve()) if k in PATH_KEYS and isinstance(v, str) and v
-                    else resolve_paths(v, base)) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [resolve_paths(v, base) for v in obj]
-    return obj
 
 
 def main():
@@ -54,16 +42,7 @@ def main():
                         help="Save GT vs prediction track plots.")
     args = parser.parse_args()
 
-    config_path = Path(args.config).resolve()
-    if not config_path.is_file():
-        raise SystemExit(f"Config not found: {config_path}\n"
-                         f"Copy config.example.json to config.json and fill in your paths.")
-    raw = json.loads(config_path.read_text())
-    if raw.get("_example"):
-        raise SystemExit(f"{config_path.name} is a template and cannot be run.\n"
-                         f"Copy it to config.json, fill in your paths and remove the '_example' line.")
-    config = resolve_paths(raw, config_path.parent)
-    config.setdefault("output_dir", str(config_path.parent / "output"))
+    config = load_config(args.config)
     run_evaluation(config, force_inference=args.force_inference, only_models=args.models,
                    save_video=args.video, save_track_plot=args.track_plot)
 

@@ -25,7 +25,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
-from datasets import Frame, iter_frame_images
+from .datasets import Frame, iter_frame_images
 
 GT_COLOUR = (0.1, 0.8, 0.2)     # green
 PRED_COLOUR = (0.9, 0.1, 0.6)   # magenta

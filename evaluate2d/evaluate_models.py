@@ -27,10 +27,10 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
-from datasets import Dataset, dataset_summary, discover_batch, iter_frame_images, load_dataset
-from detectors import Detector, build_detector
-from metrics import COCO_AREA_RANGES, COCO_IOUS, evaluate_detections
-from visualise import save_track_plots, save_videos
+from .datasets import Dataset, dataset_summary, discover_batch, iter_frame_images, load_dataset
+from .detectors import Detector, build_detector
+from .metrics import COCO_AREA_RANGES, COCO_IOUS, evaluate_detections
+from .visualise import save_track_plots, save_videos
 
 PRED_DIR = "predictions"   # YOLO labels: <PRED_DIR>/<frame key>.txt, "class xc yc w h conf" (normalised)
 PARAMS_FILE = "prediction_params.json"

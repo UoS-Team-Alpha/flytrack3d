@@ -1,0 +1,185 @@
+"""3D plots: triangulated points, factor-graph tracks, ground-truth overlays and
+per-camera reprojection overlays (the calibration check)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import matplotlib
+import numpy as np
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
+from evaluate2d.visualise import GT_COLOUR, _first_image, _safe_name  # noqa: E402
+
+# tab10 without green: green is reserved for ground truth, as in the 2D plots.
+TRACK_COLOURS = tuple(c for i, c in enumerate(plt.get_cmap("tab10").colors) if i != 2)
+POINTS_CMAP = "plasma"   # frame colouring for triangulated points; contains no green
+# Ground truth is a wide translucent band; predictions are drawn thinner on top, so where they
+# agree the prediction runs down the middle of the band and where they differ the band shows.
+GT_LW, GT_ALPHA = 6.0, 0.35
+PRED_POINT_SIZE = (1.5, 4.0)   # scatter size for 2-view, 3-view points
+PRED_TRACK_LW = 1.2
+PANELS = (("top  (X-Y)", 0, 1), ("front  (X-Z)", 0, 2))   # orthographic panels
+
+
+def use_interactive_backend() -> bool:
+    """Switch from Agg to a GUI backend for plt.show(). False if none is available."""
+    for backend in ("TkAgg", "QtAgg"):
+        try:
+            plt.switch_backend(backend)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def _equal_3d(ax, xyz: np.ndarray) -> None:
+    lo, hi = xyz.min(axis=0), xyz.max(axis=0)
+    centre, half = (lo + hi) / 2, max((hi - lo).max() / 2, 1e-6) * 1.05
+    ax.set_xlim(centre[0] - half, centre[0] + half)
+    ax.set_ylim(centre[1] - half, centre[1] + half)
+    ax.set_zlim(centre[2] - half, centre[2] + half)
+    ax.set_box_aspect((1, 1, 1))
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+
+
+def _draw_cameras(ax, cameras, length: float) -> None:
+    for c in cameras:
+        p, d = c.centre, c.axis * length
+        ax.scatter(*p, color="black", marker="s", s=30)
+        ax.quiver(*p, *d, color="black", lw=1)
+        ax.text(*p, f" {c.name}", fontsize=8)
+
+
+def _scene_figure(title: str, data: np.ndarray, cameras, fruit):
+    """2x2 figure: 3D scene, two orthographic views, 3D rig (cameras + data).
+    Returns (fig, ax3d, [ortho axes], ax_rig)."""
+    fig = plt.figure(figsize=(14, 12), layout="constrained")
+    fig.suptitle(title, fontsize=12)
+    ax3d = fig.add_subplot(2, 2, 1, projection="3d")
+    ortho = [fig.add_subplot(2, 2, i) for i in (2, 3)]
+    rig = fig.add_subplot(2, 2, 4, projection="3d")
+    extent = [data] + ([np.asarray(fruit)[None]] if fruit is not None else [])
+    _equal_3d(ax3d, np.vstack(extent))
+    rig_pts = np.vstack(extent + [np.array([c.centre for c in cameras])])
+    _equal_3d(rig, rig_pts)
+    _draw_cameras(rig, cameras, 0.15 * np.ptp(rig_pts, axis=0).max())
+    ax3d.set_title("scene")
+    rig.set_title("cameras + scene (calibration check)")
+    for ax, (name, _, _) in zip(ortho, PANELS):
+        ax.set_title(name)
+        ax.set_aspect("equal", adjustable="datalim")
+        ax.grid(alpha=0.3)
+    if fruit is not None:
+        for ax in (ax3d, rig):
+            ax.scatter(*fruit, color="red", marker="*", s=200, label="fruit", zorder=5)
+        for ax, (_, i, j) in zip(ortho, PANELS):
+            ax.plot(fruit[i], fruit[j], "r*", ms=15)
+    return fig, ax3d, ortho, rig
+
+
+def _draw_gt_tracks(ax3d, ortho, rig, gt_tracks) -> None:
+    """Ground-truth 3D tracks ((K, 4) frame, x, y, z) as green lines under everything else."""
+    for n, t in enumerate(gt_tracks):
+        label = f"ground truth ({len(gt_tracks)} tracks)" if n == 0 else None
+        for ax in (ax3d, rig):
+            ax.plot(*t[:, 1:4].T, color=GT_COLOUR, lw=GT_LW, alpha=GT_ALPHA, label=label if ax is ax3d else None)
+        for ax, (_, i, j) in zip(ortho, PANELS):
+            ax.plot(t[:, 1 + i], t[:, 1 + j], color=GT_COLOUR, lw=GT_LW, alpha=GT_ALPHA, zorder=1)
+
+
+def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str, fruit=None,
+                   gt_tracks: list[np.ndarray] | None = None, close: bool = True):
+    """points: (N, 5) frame, x, y, z, n_views. Scatter coloured by frame number; optional
+    ground-truth tracks in green."""
+    gt_tracks = gt_tracks or []
+    data = np.vstack([points[:, 1:4]] + [t[:, 1:4] for t in gt_tracks])
+    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras, fruit)
+    _draw_gt_tracks(ax3d, ortho, rig, gt_tracks)
+    kw = dict(c=points[:, 0], cmap=POINTS_CMAP, s=np.where(points[:, 4] >= 3, PRED_POINT_SIZE[1], PRED_POINT_SIZE[0]),
+              alpha=0.9, zorder=3)
+    sc = ax3d.scatter(points[:, 1], points[:, 2], points[:, 3], **kw)
+    rig.scatter(points[:, 1], points[:, 2], points[:, 3], **kw)
+    for ax, (_, i, j) in zip(ortho, PANELS):
+        ax.scatter(points[:, 1 + i], points[:, 1 + j], **kw)
+    fig.colorbar(sc, ax=[ax3d, *ortho, rig], shrink=0.5, label="frame")
+    if gt_tracks or fruit is not None:
+        ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
+    fig.savefig(out_path, dpi=110)
+    if close:
+        plt.close(fig)
+    return fig
+
+
+def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarray | None = None,
+                   fruit=None, gt_tracks: list[np.ndarray] | None = None, close: bool = True):
+    """Factor-graph tracks as lines (entry = triangle, exit = square); raw triangulated points
+    grey; optional ground-truth tracks in green."""
+    gt_tracks = gt_tracks or []
+    data = np.vstack([t.xyz for t in tracks] + [t[:, 1:4] for t in gt_tracks])
+    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras, fruit)
+    _draw_gt_tracks(ax3d, ortho, rig, gt_tracks)
+    if points is not None and len(points):
+        # Only points inside the tracks' (padded) bounding box, so clutter doesn't set the scale.
+        pad = 0.1 * np.ptp(data, axis=0).max()
+        inside = np.all((points[:, 1:4] >= data.min(0) - pad) & (points[:, 1:4] <= data.max(0) + pad), axis=1)
+        points = points[inside]
+        ax3d.scatter(points[:, 1], points[:, 2], points[:, 3], color="0.6", s=2, alpha=0.3)
+        for ax, (_, i, j) in zip(ortho, PANELS):
+            ax.scatter(points[:, 1 + i], points[:, 1 + j], color="0.6", s=2, alpha=0.3)
+    for t in tracks:
+        col = TRACK_COLOURS[(t.id - 1) % len(TRACK_COLOURS)]
+        label = f"track {t.id}: frames {t.frames[0]}-{t.frames[-1]} ({t.score} dets)"
+        for ax in (ax3d, rig):
+            ax.plot(*t.xyz.T, color=col, lw=PRED_TRACK_LW, label=label if ax is ax3d else None)
+            ax.scatter(*t.xyz[0], color=col, marker="^", s=60, edgecolor="black")
+            ax.scatter(*t.xyz[-1], color=col, marker="s", s=40, edgecolor="black")
+        for ax, (_, i, j) in zip(ortho, PANELS):
+            ax.plot(t.xyz[:, i], t.xyz[:, j], color=col, lw=PRED_TRACK_LW, zorder=3)
+            ax.plot(t.xyz[0, i], t.xyz[0, j], "^", color=col, mec="black", ms=8)
+            ax.plot(t.xyz[-1, i], t.xyz[-1, j], "s", color=col, mec="black", ms=6)
+    if tracks:
+        ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
+    fig.savefig(out_path, dpi=110)
+    if close:
+        plt.close(fig)
+    return fig
+
+
+def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100) -> list[Path]:
+    """Per camera: first frame, every raw detection (grey) and the 3D tracks projected back
+    through the full camera model (with distortion). Tracks that sit on the detections
+    confirm the calibration; a constant offset in one view points at its extrinsics."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for v in views:
+        w, h = v.size
+        fig = plt.figure(figsize=(w / dpi, h / dpi), dpi=dpi)
+        ax = fig.add_axes([0, 0, 1, 1])
+        img = _first_image(v.background) if v.background is not None else None
+        if img is not None:
+            ax.imshow(img, extent=(0, w, h, 0), alpha=0.45)
+        raw = np.vstack(list(v.raw.values())) if v.raw else np.zeros((0, 3))
+        ax.plot(raw[:, 0], raw[:, 1], ".", color="0.35", ms=2, alpha=0.5)
+        for t in tracks:
+            col = TRACK_COLOURS[(t.id - 1) % len(TRACK_COLOURS)]
+            front = v.camera.depth(t.xyz) > 0
+            uv = v.camera.project(t.xyz[front], distort=True)
+            ax.plot(uv[:, 0], uv[:, 1], "-", color=col, lw=1.6, label=f"track {t.id}")
+            if len(uv):
+                ax.plot(*uv[0], "^", color=col, mec="black", ms=9)
+        ax.set_xlim(0, w)
+        ax.set_ylim(h, 0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.legend(loc="upper left", fontsize=11, framealpha=0.85,
+                  title=f"{v.name}: grey = detections, lines = 3D tracks reprojected", title_fontsize=11)
+        path = out_dir / f"{_safe_name(v.name)}.png"
+        fig.savefig(path, dpi=dpi)
+        plt.close(fig)
+        saved.append(path)
+    return saved

@@ -1,6 +1,6 @@
 {
   "_example": true,
-  "_readme": "Template only. Copy to config.json, fill in your paths and delete the '_example' line. main.py refuses to run any config containing '_example'.",
+  "_readme": "Template only. Copy to config.json, fill in your paths and delete the '_example' line. The main_*.py scripts refuse to run any config containing '_example'.",
 
   "output_dir": "output",
 
@@ -49,6 +49,61 @@
     "track_max_distance_px": 50,
     "track_max_frame_gap": 5,
     "track_plot_background": true
+  },
+
+  "cameras": {
+    "_readme": "Calibration for main_points3d.py / main_tracks3d.py (OpenCV conventions). One entry per camera; each is paired with the batch input whose folder name contains the camera name (or its optional 'match' string). matrix = 3x3 intrinsics. distortions = k1 k2 p1 p2 k3 for model 'pinhole' (k1 k2 k3 k4 for 'fisheye'). rotation (Rodrigues vector, or a 3x3 matrix) and translation are WORLD -> CAMERA, as returned by stereoCalibrate / solvePnP; the reference camera has rotation [0, 0, 0] and translation [0, 0, 0]. translation is multiplied by t_scale (1000: calibration in metres, world in mm). image_size = [width, height] the calibration was done at (matrix is rescaled if the videos differ). frame_offset is added to that camera's frame numbers to synchronise the views.",
+    "t_scale": 1,
+    "views": {
+      "344-above": {
+        "model": "pinhole",
+        "image_size": [1984, 1264],
+        "matrix": null,
+        "distortions": null,
+        "rotation": null,
+        "translation": null,
+        "frame_offset": 0
+      },
+      "wide-middle": {
+        "model": "pinhole",
+        "image_size": [1984, 1264],
+        "matrix": null,
+        "distortions": null,
+        "rotation": null,
+        "translation": null,
+        "frame_offset": 0
+      },
+      "346-bottom": {
+        "model": "pinhole",
+        "image_size": [1984, 1264],
+        "matrix": null,
+        "distortions": null,
+        "rotation": null,
+        "translation": null,
+        "frame_offset": 0
+      }
+    }
+  },
+
+  "tracking3d": {
+    "_readme": "Pixel values are in undistorted pixels; distances in world units (cameras t x t_scale). conf_threshold null = every saved prediction. min_track_extent drops tracks that barely move (static false positives). n_tracks null = keep every track that passes min_track_frames, else keep the n with the most supporting detections. fruit_xyz [x, y, z] (optional) is drawn in the plots and each track reports its closest approach.",
+    "conf_threshold": null,
+    "max_epipolar_px": 15,
+    "max_reprojection_px": 10,
+    "link_max_distance": 20,
+    "link_max_frame_gap": 5,
+    "min_tracklet_frames": 5,
+    "n_tracks": null,
+    "min_track_frames": 10,
+    "min_track_extent": 5,
+    "pixel_sigma": 2.0,
+    "huber_k": 2.0,
+    "accel_sigma": 3.0,
+    "association_gate_px": 25,
+    "association_iterations": 3,
+    "extend_frames": 15,
+    "merge_distance": 10,
+    "fruit_xyz": null
   },
 
   "models": [
