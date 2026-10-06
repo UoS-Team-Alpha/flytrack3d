@@ -1,0 +1,21 @@
+# Tested with Python 3.14 and the versions below.
+# For GPU inference, install torch / torchvision first with the CUDA build for your machine
+# (see https://pytorch.org/get-started/locally/), then: pip install -r requirements.txt
+
+# Core
+numpy>=2.0
+scipy>=1.18
+matplotlib>=3.11
+opencv-python>=5.0    # the GUI build: the annotator opens OpenCV windows (not opencv-python-headless)
+pillow>=12.0
+PyYAML>=6.0
+tqdm>=4.65
+
+# Detectors (main_evaluate2d.py, main_inference2d.py)
+torch>=2.13
+torchvision>=0.28
+ultralytics>=8.4
+sahi>=0.12.6
+
+# 3D tracking (main_tracks3d.py, main_tracks3d_guided.py)
+gtsam>=4.3
