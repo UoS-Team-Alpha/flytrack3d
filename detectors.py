@@ -5,7 +5,7 @@ model is underneath:
 
     det = build_detector(model_cfg)
     det.cache_params()        -> dict describing everything that affects predictions
-    det.load()                -> load weights (only called if inference is needed)
+    det.ensure_loaded()       -> load weights once (only called if inference is needed)
     det.predict(rgb_image)    -> np.ndarray (M, 6): x1, y1, x2, y2, score, class_id
     det.class_names           -> {class_id: name}
 
@@ -42,14 +42,24 @@ class Detector(ABC):
         self.model_path: str | None = cfg.get("model_path")
         self.confidence_threshold: float = float(cfg.get("confidence_threshold", 0.25))
         self.class_names: dict[int, str] = {}
+        self._loaded = False
+        self._weights_sha256: str | None = None
 
     def cache_params(self) -> dict:
         params = {k: v for k, v in self.cfg.items() if k not in self.NON_CACHE_KEYS}
         params["confidence_threshold"] = self.confidence_threshold
         if self.model_path:
             # Hash the weights, not just the path, so retrained weights never reuse old predictions.
-            params["model_sha256"] = file_sha256(self.model_path)
+            if self._weights_sha256 is None:
+                self._weights_sha256 = file_sha256(self.model_path)
+            params["model_sha256"] = self._weights_sha256
         return params
+
+    def ensure_loaded(self) -> None:
+        """Load the model on first use; batch runs reuse it for every input."""
+        if not self._loaded:
+            self.load()
+            self._loaded = True
 
     @abstractmethod
     def load(self) -> None: ...

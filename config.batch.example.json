@@ -1,0 +1,61 @@
+{
+  "_example": true,
+  "_readme": "Batch template. Copy to config.batch.json, fill in your paths, delete the '_example' line and run: python main.py --config config.batch.json",
+
+  "output_dir": "output",
+
+  "dataset": {
+    "_readme": "Each entry in 'inputs' (a video file, or a folder of frames) is paired with the folder in 'labels' whose name matches it exactly, or contains it (e.g. video 'clip_01.mp4' <-> labels 'ft3_15_clip_01'). Each label folder can hold the .txt files directly or be a CVAT/YOLO export root (labels/<split>/*.txt + data.yaml). The settings below apply to every pair. Each pair gets its own sub-folder in the run folder; run-level results pool all pairs.",
+    "name": "my_batch",
+    "type": "batch",
+    "inputs": "path/to/videos",
+    "labels": "path/to/ground_truth",
+    "items": null,
+    "label_template": "frame_{:06d}",
+    "start_index": 0,
+    "only_labelled_frames": false,
+    "data_yaml": null
+  },
+
+  "evaluation": {
+    "map_iou_thresholds": {
+      "mAP@0.2": [0.2],
+      "mAP@0.5": [0.5],
+      "mAP@0.5:0.95": [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+    },
+    "pr_iou_thresholds": [0.2, 0.5],
+    "pr_conf_threshold": null,
+    "max_dets_per_image": 100,
+    "area_ranges": {
+      "all": [0, 1e10],
+      "small": [0, 1024],
+      "medium": [1024, 9216],
+      "large": [9216, 1e10]
+    }
+  },
+
+  "visualisation": {
+    "conf_threshold": null,
+    "video_fps": 30,
+    "track_max_distance_px": 50,
+    "track_max_frame_gap": 5,
+    "track_plot_background": true
+  },
+
+  "models": [
+    {
+      "name": "my_yolo_sahi",
+      "enabled": true,
+      "type": "sahi",
+      "model_type": "ultralytics",
+      "model_path": "path/to/weights/best.pt",
+      "confidence_threshold": 0.25,
+      "device": "cuda:0",
+      "slice_height": 640,
+      "slice_width": 640,
+      "overlap_height_ratio": 0.2,
+      "overlap_width_ratio": 0.2,
+      "batch_size": 12
+    }
+  ]
+}

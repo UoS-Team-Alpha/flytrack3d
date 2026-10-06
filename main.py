@@ -5,6 +5,11 @@ From the command line, flags override the settings:
     python main.py --config other.json
     python main.py --models yolo_s_12_base_sahi yolo_s_11_p2_sahi
     python main.py --force-inference --video --no-track-plot
+    python main.py --config config.batch.json    # folder of videos + folder of labels
+
+Dataset types: a folder of images ("yolo_images"), one video ("video"), or a
+folder of videos / frame folders paired with a folder of label folders
+("batch"). See config.example.json and config.batch.example.json.
 """
 
 import argparse
@@ -23,7 +28,7 @@ SAVE_VIDEO = False         # annotated MP4 per sequence (GT green, predictions m
 SAVE_TRACK_PLOT = True     # frame-sized PNG per sequence with GT vs predicted tracks
 # =====================================================================================
 
-PATH_KEYS = {"images", "labels", "video", "data_yaml", "model_path", "config_path", "output_dir"}
+PATH_KEYS = {"images", "labels", "video", "inputs", "data_yaml", "model_path", "config_path", "output_dir"}
 
 
 def resolve_paths(obj, base: Path):

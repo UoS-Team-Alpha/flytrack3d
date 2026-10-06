@@ -14,14 +14,17 @@
   },
 
   "_dataset_video_alternative": {
+    "_readme": "Rename to 'dataset' to evaluate one video. 'labels' can be the folder of .txt files or a CVAT/YOLO export root containing labels/<split>/ (its data.yaml is then used for class names). start_index = label number of the video's first frame (0 if labels start at frame_000000).",
     "name": "my_video",
     "type": "video",
     "video": "path/to/video.mp4",
     "labels": "path/to/video_labels",
     "label_template": "frame_{:06d}",
-    "start_index": 1,
+    "start_index": 0,
     "only_labelled_frames": false
   },
+
+  "_dataset_batch_alternative": "To evaluate a folder of videos / frame folders against a folder of label folders, see config.batch.example.json.",
 
   "evaluation": {
     "map_iou_thresholds": {

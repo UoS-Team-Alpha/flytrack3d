@@ -9,6 +9,7 @@ __pycache__/
 config.json
 config.*.json
 !config.example.json
+!config.batch.example.json
 
 # Evaluation outputs (predictions, metrics, videos; metadata contains local paths)
 output/
