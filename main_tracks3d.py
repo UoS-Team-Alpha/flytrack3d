@@ -12,11 +12,17 @@ From the command line, flags override the settings:
     python main_tracks3d.py --source gt         # build tracks from the ground-truth labels
     python main_tracks3d.py --no-show
 
-Outputs go to <run>/3d/<model or ground_truth>/tracks/:
-    tracks.csv               per-frame position, uncertainty and views of every track
+Outputs go to a new folder per run, <run>/3d/<model or ground_truth>/factor_graph/tracks_<datetime>/:
+    tracks_3d.csv            per-frame position, uncertainty and views of every track
     tracks.json / summary.txt  per-track entry point, length, speed
+    params.json              the settings this run used
     tracks_3d.png            3D + orthographic views with the raw triangulated points
     reprojection/<cam>.png   tracks projected back into each camera (calibration check)
+    evaluation_3d.txt        tracks vs the ground-truth 3D points: recall, RMSE, ... (needs GT labels)
+    evaluation_2d.txt        2D P/R/mAP with the tracks back-projected into the gaps (evaluate_2d)
+    evaluation.json          both evaluations in full
+    track_plots_backproj/    2D track plots plus the back-projected boxes (visualise_backproj)
+See tracking3d/evaluate.py for how the evaluation works.
 """
 
 import argparse
@@ -25,6 +31,7 @@ from pathlib import Path
 import numpy as np
 
 from evaluate2d.config import load_config
+from tracking3d.evaluate import evaluate_tracks
 from tracking3d.factor_graph import build_tracks
 from tracking3d.multiview import ground_truth_tracks, open_session
 from tracking3d.report import write_track_outputs
@@ -79,20 +86,23 @@ def main():
         raise SystemExit("No tracks survived. Try lowering min_tracklet_frames / min_track_frames or "
                          "raising link_max_distance (world units per frame).")
 
-    out_dir = session.out_dir("tracks")
-    report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} track(s), best supported first")
+    out_dir = session.factor_graph_dir("tracks")
+    report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} track(s), best supported first",
+                                 params={"mode": "unguided", "evaluation": config.get("evaluation", {})})
     print("\n" + report)
 
+    gt = ground_truth_tracks(session, config["cameras"]) if args.source == "pred" else None
+    print("\n" + "\n\n".join(evaluate_tracks(session, config, tracks, gt, out_dir)))
+
     pts = np.array([[f, *p.xyz, len(p.views)] for f, ps in points.items() for p in ps])
-    reproj = save_reprojection_plots(tracks, views, out_dir / "reprojection")
+    save_reprojection_plots(tracks, views, out_dir / "reprojection")
     title = f"{session.run.name}  |  {session.label}  |  {len(tracks)} tracks (triangle = entry, square = exit)"
-    gt = ground_truth_tracks(session, config["cameras"]) if args.gt_overlay and args.source == "pred" else None
+    gt = gt if args.gt_overlay else None
     if gt:
         title += "  |  green = ground truth"
     show = args.show and use_interactive_backend()
     plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, gt, close=not show)
-    print(f"\nSaved to {out_dir}  (tracks.csv, tracks.json, summary.txt, tracks_3d.png, "
-          f"{len(reproj)} reprojection plots)")
+    print(f"\nSaved to {out_dir}")
     if show:
         import matplotlib.pyplot as plt
         plt.show()

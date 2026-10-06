@@ -17,6 +17,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -295,6 +296,10 @@ def tracking_settings(config: dict) -> dict:
         "merge_distance": 10.0,
         "static_radius_px": 6.0,
         "static_min_fraction": 0.3,
+        "eval_match_distance": 20.0,
+        "evaluate_2d": True,
+        "backproj_score": 0.5,
+        "visualise_backproj": True,
         "anchor_pixel_sigma": 3.0,
         "anchor_gate_px": 40.0,
         "anchor_frame_window": 30,
@@ -321,6 +326,13 @@ class Session:
 
     def out_dir(self, kind: str) -> Path:
         d = self.run.path / "3d" / self.label / kind
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def factor_graph_dir(self, mode: str) -> Path:
+        """<run>/3d/<label>/factor_graph/<mode>_<datetime>/: a new folder for every factor-graph run,
+        so runs with different settings (see its params.json) can be compared."""
+        d = self.run.path / "3d" / self.label / "factor_graph" / f"{mode}_{datetime.now():%Y%m%d-%H%M%S}"
         d.mkdir(parents=True, exist_ok=True)
         return d
 

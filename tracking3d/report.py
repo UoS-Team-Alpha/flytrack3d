@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import datetime
 from pathlib import Path
 
 from .factor_graph import Track3D
@@ -35,8 +36,10 @@ def format_summary(session, tracks: list[Track3D], summaries: list[dict], s: dic
 
 
 def write_track_outputs(session, tracks: list[Track3D], s: dict, out_dir: Path, heading: str,
-                        extra_lines: list[str] = (), extra_json: dict | None = None) -> str:
-    """summary.txt, tracks.json and tracks.csv. Returns the summary text."""
+                        extra_lines: list[str] = (), extra_json: dict | None = None,
+                        params: dict | None = None) -> str:
+    """summary.txt, tracks.json, tracks_3d.csv and params.json (the settings this run used, plus
+    `params`). Returns the summary text."""
     summaries = [t.summary() for t in tracks]
     report = format_summary(session, tracks, summaries, s, heading)
     if extra_lines:
@@ -45,7 +48,11 @@ def write_track_outputs(session, tracks: list[Track3D], s: dict, out_dir: Path, 
     (out_dir / "tracks.json").write_text(json.dumps({"run": session.run.name, "detections": session.label,
                                                      "settings": s, "tracks": summaries, **(extra_json or {})},
                                                     indent=2, default=str))
-    with open(out_dir / "tracks.csv", "w", newline="") as fh:
+    (out_dir / "params.json").write_text(json.dumps({
+        "created": datetime.now().isoformat(timespec="seconds"), "run": session.run.name,
+        "detections": session.label, "views": {v.name: v.input_name for v in session.views},
+        **(params or {}), "tracking3d": s}, indent=2, default=str))
+    with open(out_dir / "tracks_3d.csv", "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["track", "frame", "x", "y", "z", "sigma", "n_views"])
         for t in tracks:

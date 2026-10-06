@@ -29,6 +29,7 @@ from .datasets import Frame, iter_frame_images
 
 GT_COLOUR = (0.1, 0.8, 0.2)     # green
 PRED_COLOUR = (0.9, 0.1, 0.6)   # magenta
+EXTRA_COLOUR = (1.0, 0.55, 0.0)  # orange: extra points, e.g. factor-graph boxes inserted by tracking3d
 
 
 def group_sequences(frames: list[Frame]) -> "OrderedDict[str, list[Frame]]":
@@ -90,8 +91,10 @@ def _first_image(frame: Frame) -> np.ndarray | None:
 
 def save_track_plots(frames: list[Frame], preds: dict[str, np.ndarray], out_dir: Path, model_name: str,
                      conf: float, max_distance: float = 50, max_gap: int = 5,
-                     background: bool = True, dpi: int = 100) -> list[Path]:
-    """One frame-sized PNG per sequence with GT and predicted tracks drawn as lines."""
+                     background: bool = True, dpi: int = 100, extra: dict[str, np.ndarray] | None = None,
+                     extra_label: str = "") -> list[Path]:
+    """One frame-sized PNG per sequence with GT and predicted tracks drawn as lines.
+    extra: {frame key: (N, 2) xy} points drawn as orange dots on top (legend: extra_label)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     saved = []
     for seq, seq_frames in group_sequences(frames).items():
@@ -118,6 +121,10 @@ def save_track_plots(frames: list[Frame], preds: dict[str, np.ndarray], out_dir:
                     ax.plot(t[:, 1], t[:, 2], style, color=colour, lw=1.6, alpha=0.9, zorder=z)
                 else:
                     ax.plot(t[:, 1], t[:, 2], "o", color=colour, ms=3, alpha=0.9, zorder=z)
+        ex = [extra[f.key] for f in seq_frames if extra and f.key in extra]
+        ex = np.vstack(ex) if ex else np.zeros((0, 2))
+        if len(ex):
+            ax.plot(ex[:, 0], ex[:, 1], "o", color=EXTRA_COLOUR, ms=3, alpha=0.9, zorder=4)
         ax.set_xlim(0, w)
         ax.set_ylim(h, 0)  # image coordinates: origin top-left
         ax.set_xticks([])
@@ -131,6 +138,9 @@ def save_track_plots(frames: list[Frame], preds: dict[str, np.ndarray], out_dir:
             Line2D([], [], color=PRED_COLOUR, ls="--", lw=2.5,
                    label=f"{model_name} (conf>={conf:g}; {len(pr_tracks)} tracks, {n_pr} boxes)"),
         ]
+        if len(ex):
+            handles.append(Line2D([], [], color=EXTRA_COLOUR, ls="", marker="o", ms=6,
+                                  label=f"{extra_label} ({len(ex)} points)"))
         ax.legend(handles=handles, loc="upper left", fontsize=12, framealpha=0.85,
                   title=f"{seq}  |  frames {len(seq_frames)}", title_fontsize=11)
 

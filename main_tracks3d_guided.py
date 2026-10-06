@@ -18,8 +18,8 @@ From the command line, flags override the settings:
     python main_tracks3d_guided.py --no-gui         # reuse the saved annotations
     python main_tracks3d_guided.py --source gt      # track through the ground-truth labels
 
-Outputs go to <run>/3d/<model or ground_truth>/tracks_guided/ (same files as
-main_tracks3d.py, plus the annotations drawn in the plots).
+Outputs go to a new folder per run, <run>/3d/<model or ground_truth>/factor_graph/guided_<datetime>/
+(same files as main_tracks3d.py - tracks, params, evaluation - plus the annotations drawn in the plots).
 """
 
 import argparse
@@ -30,6 +30,7 @@ import numpy as np
 
 from evaluate2d.config import load_config
 from gui import run_annotation_gui, view_input_from_source
+from tracking3d.evaluate import evaluate_tracks
 from tracking3d.guided import anchor_residuals, build_guided_tracks
 from tracking3d.multiview import ground_truth_tracks, open_session
 from tracking3d.report import write_track_outputs
@@ -141,25 +142,29 @@ def main():
     if not tracks:
         raise SystemExit("\n".join(["No object could be tracked."] + warnings))
 
-    out_dir = session.out_dir("tracks_guided")
+    out_dir = session.factor_graph_dir("guided")
     report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} annotated object(s), by object number",
-                                 extra, {"annotation_file": str(ann_path), "objects": per_object})
+                                 extra, {"annotation_file": str(ann_path), "objects": per_object},
+                                 params={"mode": "guided", "annotation_file": str(ann_path),
+                                         "evaluation": config.get("evaluation", {})})
     print("\n" + report)
+
+    gt = ground_truth_tracks(session, config["cameras"]) if args.source == "pred" else None
+    print("\n" + "\n\n".join(evaluate_tracks(session, config, tracks, gt, out_dir)))
 
     pts = np.array([[f, *p.xyz, len(p.views)] for f, ps in points.items() for p in ps]).reshape(-1, 5)
     raw_ann = {}
     for a in annotations:
         raw_ann.setdefault(a["view"], []).append((a["object"], a["kind"], a["x"], a["y"]))
-    reproj = save_reprojection_plots(tracks, views, out_dir / "reprojection", annotations=raw_ann)
+    save_reprojection_plots(tracks, views, out_dir / "reprojection", annotations=raw_ann)
     title = (f"{session.run.name}  |  {session.label}  |  {len(tracks)} guided tracks "
              f"(+ = annotated start, x = annotated end)")
-    gt = ground_truth_tracks(session, config["cameras"]) if args.gt_overlay and args.source == "pred" else None
+    gt = gt if args.gt_overlay else None
     if gt:
         title += "  |  green = ground truth"
     show = args.show and use_interactive_backend()
     plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, gt, anchors_3d, close=not show)
-    print(f"\nSaved to {out_dir}  (tracks.csv, tracks.json, summary.txt, tracks_3d.png, "
-          f"{len(reproj)} reprojection plots)")
+    print(f"\nSaved to {out_dir}")
     if show:
         import matplotlib.pyplot as plt
         plt.show()
