@@ -3,9 +3,11 @@
 1. Choose a run (as in main_tracks3d.py).
 2. An annotation window opens on each camera's video in turn. Mark where each object
    of interest starts and / or ends - in any views, any mix. "continue" moves to the
-   next video, "finish" on the last one runs the tracking. Annotations are saved to
-   <run>/3d/annotations.json and loaded again next time, so they can be refined or
-   reused (--no-gui).
+   next video, "finish" on the last one runs the tracking. In a later video, "suggest
+   starts" / "suggest ends" proposes the points from the earlier views (epipolar
+   geometry, see gui/suggest.py); check them, delete or re-place any wrong ones.
+   Annotations are saved to <run>/3d/annotations.json and loaded again next time, so
+   they can be refined or reused (--no-gui).
 3. Each annotated object gets exactly one factor-graph track: the annotations fix its
    frame range, act as trusted reprojection factors and seed it, so it can bridge
    stretches where the detector lost it. See tracking3d/guided.py.
@@ -60,14 +62,14 @@ def annotate(session, path: Path, use_gui: bool) -> list[dict]:
     for v in session.views:
         detections = {f - v.camera.frame_offset: d for f, d in v.raw.items()}  # back to label frame numbers
         try:
-            views.append(view_input_from_source(v.name, v.input_name, v.source, detections))
+            views.append(view_input_from_source(v.name, v.input_name, v.source, detections, v.camera))
         except FileNotFoundError as e:
             raise SystemExit(f"Cannot open the video for {v.name}: {e}") from None
     print(f"\nOpening the annotator ({len(views)} views"
           f"{f', {len(saved)} saved annotations loaded' if saved else ''}) ...")
     what = "ground-truth labels" if session.source == "gt" else f"{session.model} detections"
     result = run_annotation_gui(views, saved, title=f"{session.run.name}  |  {session.label}",
-                                detections_label=what)
+                                detections_label=what, suggest_gate_px=session.settings["max_epipolar_px"])
     if result is None:
         raise SystemExit("Annotation cancelled - nothing saved, nothing tracked.")
     path.parent.mkdir(parents=True, exist_ok=True)

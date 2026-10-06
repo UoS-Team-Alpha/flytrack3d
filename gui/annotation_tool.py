@@ -17,6 +17,10 @@ END point per view; any of them may be left out (e.g. a start in one view only).
                s / e              START / END mode
                n, 1-9, [ / ]      new object, select object, previous / next object
                h                  show / hide detections
+               l                  show / hide the selected object's epipolar lines
+               S / E              suggest STARTs / ENDs in this view from the other views
+                                  (epipolar geometry, see gui/suggest.py); marked "?",
+                                  delete or replace them like any annotation
                Enter              continue to the next view (finish on the last)
                Backspace          back to the previous view
                Esc                cancel everything
@@ -25,6 +29,7 @@ Annotations are returned as plain dicts:
     {"object": 1, "view": "344-above", "kind": "start", "frame": 214,
      "x": 1032.5, "y": 455.0, "box": [x, y, w, h] or None}
 with x, y in raw (distorted) pixels and frame = the label frame number (frame_000214).
+Suggested points also have "suggested": true (dropped once placed by hand).
 """
 
 from __future__ import annotations
@@ -35,6 +40,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+
+from .suggest import aligned, epipolar_polyline, suggest
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 
@@ -53,7 +60,7 @@ FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 PANEL_W = 400
 TIMELINE_H = 54
-MIN_H = 720
+MIN_H = 780
 MAX_VIEW_W, MAX_VIEW_H = 1280, 820
 SNAP_PX = 14          # display pixels within which a click snaps to a detection
 DRAG_MIN_PX = 4       # display pixels: shorter drags count as clicks
@@ -75,6 +82,7 @@ class ViewInput:
     images: list[str] | None = None            # ... or the frames as image files
     frame_numbers: list[int] = field(default_factory=list)       # label frame number per position
     detections: dict[int, np.ndarray] = field(default_factory=dict)  # frame number -> (N, >=2) x, y
+    camera: object | None = None               # tracking3d Camera; needed for suggestions
 
 
 class FrameSource:
@@ -110,7 +118,8 @@ class FrameSource:
             self.cap.release()
 
 
-def view_input_from_source(name: str, label: str, source: dict, detections: dict[int, np.ndarray]) -> ViewInput:
+def view_input_from_source(name: str, label: str, source: dict, detections: dict[int, np.ndarray],
+                           camera=None) -> ViewInput:
     """Build a ViewInput from a batch input's dataset config (video or folder of frames)."""
     if source.get("video") and Path(source["video"]).is_file():
         cap = cv2.VideoCapture(source["video"])
@@ -118,11 +127,12 @@ def view_input_from_source(name: str, label: str, source: dict, detections: dict
         cap.release()
         start = int(source.get("start_index", 1))   # same default as datasets._load_video
         return ViewInput(name, label, video=source["video"], frame_numbers=[i + start for i in range(n)],
-                         detections=detections)
+                         detections=detections, camera=camera)
     if source.get("images") and Path(source["images"]).is_dir():
         imgs = sorted(p for p in Path(source["images"]).rglob("*") if p.suffix.lower() in IMAGE_EXTS)
         nums = [int(m.group(1)) if (m := re.search(r"(\d+)$", p.stem)) else i for i, p in enumerate(imgs)]
-        return ViewInput(name, label, images=[str(p) for p in imgs], frame_numbers=nums, detections=detections)
+        return ViewInput(name, label, images=[str(p) for p in imgs], frame_numbers=nums, detections=detections,
+                         camera=camera)
     raise FileNotFoundError(f"No readable video or image folder for view '{name}' ({source})")
 
 
@@ -130,8 +140,9 @@ class AnnotationGUI:
     window = "Annotate start / end points"
 
     def __init__(self, views: list[ViewInput], annotations: list[dict] | None = None, title: str = "",
-                 detections_label: str = "detections"):
+                 detections_label: str = "detections", suggest_gate_px: float = 15.0):
         self.views = views
+        self.suggest_gate_px = suggest_gate_px     # epipolar / reprojection gate for suggestions
         self.title = title
         self.detections_label = detections_label   # what the circles are, shown in the help text
         self.ann: list[dict] = [dict(a) for a in (annotations or [])]
@@ -142,6 +153,7 @@ class AnnotationGUI:
         ids = sorted({a["object"] for a in self.ann})
         self.obj = ids[0] if ids else 1
         self.show_dets = True
+        self.show_epipolar = True
         self.status = ""
         self.done: bool | None = None               # True = finished, False = cancelled
         # interaction
@@ -258,7 +270,25 @@ class AnnotationGUI:
         self.ann.append({"object": self.obj, "view": self.view.name, "kind": self.mode, "frame": self.frame_no,
                          "x": round(x, 2), "y": round(y, 2), "box": box})
         self.status = (f"#{self.obj} {self.mode.upper()} set at frame {self.frame_no}"
-                       + (f" (replaced frame {old['frame']})" if old else ""))
+                       + (f" (replaced {'suggestion at ' if old.get('suggested') else ''}frame {old['frame']})"
+                          if old else ""))
+
+    def _suggest(self, kind: str) -> None:
+        if self.view.camera is None or sum(v.camera is not None for v in self.views) < 2:
+            self.status = "Suggestions need camera calibrations"
+            return
+        # Refresh: earlier suggestions of this kind in this view are replaced.
+        self.ann = [a for a in self.ann if not (a.get("suggested") and a["view"] == self.view.name
+                                                and a["kind"] == kind)]
+        new, notes = suggest(self.views, self.vi, self.ann, kind, self.suggest_gate_px)
+        self.ann += new
+        print(f"\nSuggested {kind.upper()}s for {self.view.name}:" + "".join(f"\n  {n}" for n in notes or ["none"]))
+        skipped = len(notes) - len(new)
+        self.status = (f"{len(new)} {kind.upper()} suggestion(s)" + (f", {skipped} skipped" if skipped else "")
+                       + (" - details in terminal" if notes else " - nothing annotated in other views"))
+        if new:
+            self.obj, self.mode = new[0]["object"], kind
+            self._seek(list(self.view.frame_numbers).index(new[0]["frame"]))
 
     def _delete_near(self, x: float, y: float) -> None:
         here = [a for a in self._view_ann() if a["frame"] == self.frame_no]
@@ -297,7 +327,8 @@ class AnnotationGUI:
             ord("A"): lambda: self._seek(self.pos - 10), ord("D"): lambda: self._seek(self.pos + 10),
             ord("s"): lambda: self._set_mode("start"), ord("e"): lambda: self._set_mode("end"),
             ord("n"): self._new_object, ord("["): lambda: self._step_object(-1),
-            ord("]"): lambda: self._step_object(1), ord("h"): self._toggle_dets,
+            ord("]"): lambda: self._step_object(1), ord("h"): self._toggle_dets, ord("l"): self._toggle_epipolar,
+            ord("S"): lambda: self._suggest("start"), ord("E"): lambda: self._suggest("end"),
             13: self._continue, 10: self._continue, 8: self._back, 27: self._cancel,
         }
         if ord("1") <= ch <= ord("9"):
@@ -325,6 +356,10 @@ class AnnotationGUI:
 
     def _toggle_dets(self) -> None:
         self.show_dets = not self.show_dets
+
+    def _toggle_epipolar(self) -> None:
+        self.show_epipolar = not self.show_epipolar
+        self.status = f"Epipolar lines {'shown' if self.show_epipolar else 'hidden'}"
 
     def _continue(self) -> None:
         if self.vi + 1 < len(self.views):
@@ -414,8 +449,9 @@ class AnnotationGUI:
          "new": self._new_object, "prev_obj": lambda: self._step_object(-1),
          "next_obj": lambda: self._step_object(1), "m10": lambda: self._seek(self.pos - 10),
          "m1": lambda: self._seek(self.pos - 1), "p1": lambda: self._seek(self.pos + 1),
-         "p10": lambda: self._seek(self.pos + 10), "goto": self._start_input, "dets": self._toggle_dets,
-         "clear_view": self._clear_view, "back": self._back, "continue": self._continue,
+         "p10": lambda: self._seek(self.pos + 10), "goto": self._start_input, "dets": self._toggle_dets, "epipolar": self._toggle_epipolar,
+         "clear_view": self._clear_view, "sugg_start": lambda: self._suggest("start"),
+         "sugg_end": lambda: self._suggest("end"), "back": self._back, "continue": self._continue,
          "cancel": self._cancel}[name]()
 
     def _start_input(self) -> None:
@@ -457,13 +493,15 @@ class AnnotationGUI:
                 p = self._to_disp(x, y)
                 cv2.circle(vp, p, 9, (210, 210, 210), 1, cv2.LINE_AA)
                 cv2.circle(vp, p, 1, (210, 210, 210), -1)
+        self._draw_epipolar(vp)
         for a in self._view_ann():
             col = object_colour(a["object"])
             p = self._to_disp(a["x"], a["y"])
+            q = "?" if a.get("suggested") else ""
             if a["frame"] != self.frame_no:
                 if a["object"] == self.obj:  # ghost of the selected object's other annotations
                     cv2.circle(vp, p, 5, col, 1, cv2.LINE_AA)
-                    cv2.putText(vp, f"{a['kind'][0].upper()}{a['frame']}", (p[0] + 7, p[1] + 4), FONT, 0.4,
+                    cv2.putText(vp, f"{a['kind'][0].upper()}{a['frame']}{q}", (p[0] + 7, p[1] + 4), FONT, 0.4,
                                 col, 1, cv2.LINE_AA)
                 continue
             if a.get("box"):
@@ -472,12 +510,31 @@ class AnnotationGUI:
             kind_c = START_C if a["kind"] == "start" else END_C
             cv2.drawMarker(vp, p, kind_c, cv2.MARKER_CROSS if a["kind"] == "start" else cv2.MARKER_TILTED_CROSS,
                            22, 2, cv2.LINE_AA)
-            cv2.circle(vp, p, 13, col, 2, cv2.LINE_AA)
-            self._label(vp, f"#{a['object']} {a['kind'].upper()}", (p[0] + 16, p[1] - 10), col)
+            cv2.circle(vp, p, 13, col, 1 if q else 2, cv2.LINE_AA)
+            self._label(vp, f"#{a['object']} {a['kind'].upper()}{q}", (p[0] + 16, p[1] - 10), col)
         if self.drag_start and self.drag_now:
             cv2.rectangle(vp, self.drag_start, self.drag_now, object_colour(self.obj), 1, cv2.LINE_AA)
         self._label(vp, f"{self.view.name}   frame {self.frame_no}   ({self.pos + 1}/{len(self.source)})"
                         f"{'   zoom x%.1f' % self.zoom if self.zoom > 1 else ''}", (10, 22), TEXT)
+
+    def _draw_epipolar(self, vp: np.ndarray) -> None:
+        """Epipolar lines of the selected object's points in the other views, on their frames."""
+        cam = self.view.camera
+        if cam is None or not self.show_epipolar:
+            return
+        h, w = self.img.shape[:2]
+        for a in self.ann:
+            if a["object"] != self.obj or a["view"] == self.view.name or a.get("suggested"):
+                continue
+            other = next((v for v in self.views if v.name == a["view"]), None)
+            if other is None or other.camera is None or aligned(a["frame"], other.camera) != aligned(self.frame_no, cam):
+                continue
+            pts = epipolar_polyline(other.camera, (a["x"], a["y"]), cam, (w, h))
+            disp = np.array([self._to_disp(x, y) for x, y in pts if np.isfinite(x) and np.isfinite(y)], np.int32)
+            if len(disp) >= 2:
+                cv2.polylines(vp, [disp], False, object_colour(a["object"]), 1, cv2.LINE_AA)
+                self._label(vp, f"{a['view']} {a['kind']}", tuple(disp[len(disp) // 2] + [6, -6]),
+                            object_colour(a["object"]), 0.4)
 
     @staticmethod
     def _label(img, text, org, colour, scale=0.5) -> None:
@@ -562,10 +619,16 @@ class AnnotationGUI:
         y += 44
         self._button_draw(canvas, "dets", L, y, half, 28, f"detections: {'on' if self.show_dets else 'off'} (h)",
                           active=False)
-        self._button_draw(canvas, "clear_view", L + half + 10, y, half, 28, "clear this view", (50, 50, 110))
+        self._button_draw(canvas, "epipolar", L + half + 10, y, half, 28,
+                          f"epipolar lines: {'on' if self.show_epipolar else 'off'} (l)")
+        y += 34
+        self._button_draw(canvas, "sugg_start", L, y, half, 28, "suggest starts (S)", (40, 90, 40))
+        self._button_draw(canvas, "sugg_end", L + half + 10, y, half, 28, "suggest ends (E)", (40, 40, 110))
+        y += 34
+        self._button_draw(canvas, "clear_view", L, y, bw, 24, "clear this view", (50, 50, 110))
 
         # annotations table (this view)
-        y += 48
+        y += 42
         cv2.putText(canvas, "This view  (click: go to  |  right click: delete)", (L, y), FONT, 0.42, DIM, 1,
                     cv2.LINE_AA)
         rows = sorted(self._view_ann(), key=lambda a: (a["object"], a["kind"] != "start"))
@@ -584,7 +647,8 @@ class AnnotationGUI:
             cv2.rectangle(canvas, (L, ry), (L + bw, ry + row_h - 3), (75, 75, 75) if sel else (55, 55, 55), -1)
             cv2.rectangle(canvas, (L, ry), (L + 8, ry + row_h - 3), object_colour(a["object"]), -1)
             text = (f"#{a['object']}  {a['kind'].upper():<5}  frame {a['frame']:<6}"
-                    f"({a['x']:.0f}, {a['y']:.0f}){'  box' if a.get('box') else ''}")
+                    f"({a['x']:.0f}, {a['y']:.0f}){'  box' if a.get('box') else ''}"
+                    f"{'  suggested' if a.get('suggested') else ''}")
             cv2.putText(canvas, text, (L + 16, ry + 15), FONT, 0.42, (255, 255, 255) if here else TEXT, 1,
                         cv2.LINE_AA)
             self.rows.append(((L, ry, L + bw, ry + row_h - 3), a))
@@ -627,7 +691,9 @@ class AnnotationGUI:
 
 
 def run_annotation_gui(views: list[ViewInput], annotations: list[dict] | None = None, title: str = "",
-                       detections_label: str = "detections") -> list[dict] | None:
+                       detections_label: str = "detections", suggest_gate_px: float = 15.0) -> list[dict] | None:
     """Annotate every view in turn. Returns the annotations, or None if cancelled.
-    detections_label says what the detection circles are (e.g. the model name)."""
-    return AnnotationGUI(views, annotations, title, detections_label).run()
+    detections_label says what the detection circles are (e.g. the model name).
+    suggest_gate_px: how far (pixels) a detection may be from the epipolar line / reprojected
+    point to be suggested (views need a .camera for suggestions)."""
+    return AnnotationGUI(views, annotations, title, detections_label, suggest_gate_px).run()
