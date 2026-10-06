@@ -84,14 +84,13 @@ def main():
                        + [p.views.get(i, "") for i in range(len(views))])
 
     arr = np.array([[f, *p.xyz, len(p.views)] for f, p in flat])
-    fruit = np.asarray(s["fruit_xyz"], float) if s.get("fruit_xyz") else None
     title = (f"{session.run.name}  |  {session.label}  |  {len(flat)} triangulated points "
              f"(colour = frame, large = 3 views)")
     gt = ground_truth_tracks(session, config["cameras"]) if args.gt_overlay and args.source == "pred" else None
     if gt:
         title += "  |  green = ground truth"
     show = args.show and use_interactive_backend()
-    plot_points_3d(arr, cams, out_dir / "points_3d.png", title, fruit, gt, close=not show)
+    plot_points_3d(arr, cams, out_dir / "points_3d.png", title, gt, close=not show)
     print(f"\nSaved {out_dir / 'points.csv'}\n      {out_dir / 'points_3d.png'}")
     if show:
         import matplotlib.pyplot as plt

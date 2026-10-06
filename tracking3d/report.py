@@ -6,8 +6,6 @@ import csv
 import json
 from pathlib import Path
 
-import numpy as np
-
 from .factor_graph import Track3D
 
 
@@ -17,10 +15,9 @@ def format_summary(session, tracks: list[Track3D], summaries: list[dict], s: dic
              f"Views     : " + ", ".join(f"{v.name} <- {v.input_name}" for v in session.views),
              f"Settings  : " + ", ".join(f"{k}={v}" for k, v in s.items() if not k.startswith("_")), "",
              heading, ""]
-    fruit = s.get("fruit_xyz") is not None
     head = f"  {'id':>3}{'frames':>13}{'len':>6}{'dets':>6}{'3-view':>8}{'2-view':>8}{'1-view':>8}" \
            f"{'reproj':>8}{'sigma':>8}{'path':>10}  {'entry xyz':<26}{'+/-':>7}{'2+ views @':>11}"
-    lines.append(head + ("            fruit min @frame" if fruit else ""))
+    lines.append(head)
     for t in summaries:
         fv = t["frames_by_views"]
         row = (f"  {t['id']:>3}{t['start_frame']:>6}-{t['end_frame']:<6}{t['frames']:>6}{t['detections']:>6}"
@@ -28,8 +25,6 @@ def format_summary(session, tracks: list[Track3D], summaries: list[dict], s: dic
                f"{t['reprojection_px_median'] or 0:>8.2f}{t['sigma_median'] or float('nan'):>8.2f}"
                f"{t['path_length']:>10.1f}  {'(' + ', '.join(f'{v:.1f}' for v in t['entry_xyz']) + ')':<26}"
                f"{t['entry_sigma'] or float('nan'):>7.1f}{t['first_multiview_frame']:>11}")
-        if fruit:
-            row += f"  {t['fruit_closest_distance']:>10.1f} @{t['fruit_closest_frame']}"
         lines.append(row)
     lines += ["", "  frames by views: frames where the track was detected in 3 / 2 / 1 cameras "
                   "(others are bridged by the motion prior)",
@@ -42,8 +37,7 @@ def format_summary(session, tracks: list[Track3D], summaries: list[dict], s: dic
 def write_track_outputs(session, tracks: list[Track3D], s: dict, out_dir: Path, heading: str,
                         extra_lines: list[str] = (), extra_json: dict | None = None) -> str:
     """summary.txt, tracks.json and tracks.csv. Returns the summary text."""
-    fruit = np.asarray(s["fruit_xyz"], float) if s.get("fruit_xyz") else None
-    summaries = [t.summary(fruit) for t in tracks]
+    summaries = [t.summary() for t in tracks]
     report = format_summary(session, tracks, summaries, s, heading)
     if extra_lines:
         report += "\n\n" + "\n".join(extra_lines)

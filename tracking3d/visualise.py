@@ -55,7 +55,7 @@ def _draw_cameras(ax, cameras, length: float) -> None:
         ax.text(*p, f" {c.name}", fontsize=8)
 
 
-def _scene_figure(title: str, data: np.ndarray, cameras, fruit):
+def _scene_figure(title: str, data: np.ndarray, cameras):
     """2x2 figure: 3D scene, two orthographic views, 3D rig (cameras + data).
     Returns (fig, ax3d, [ortho axes], ax_rig)."""
     fig = plt.figure(figsize=(14, 12), layout="constrained")
@@ -63,9 +63,8 @@ def _scene_figure(title: str, data: np.ndarray, cameras, fruit):
     ax3d = fig.add_subplot(2, 2, 1, projection="3d")
     ortho = [fig.add_subplot(2, 2, i) for i in (2, 3)]
     rig = fig.add_subplot(2, 2, 4, projection="3d")
-    extent = [data] + ([np.asarray(fruit)[None]] if fruit is not None else [])
-    _equal_3d(ax3d, np.vstack(extent))
-    rig_pts = np.vstack(extent + [np.array([c.centre for c in cameras])])
+    _equal_3d(ax3d, data)
+    rig_pts = np.vstack([data, np.array([c.centre for c in cameras])])
     _equal_3d(rig, rig_pts)
     _draw_cameras(rig, cameras, 0.15 * np.ptp(rig_pts, axis=0).max())
     ax3d.set_title("scene")
@@ -74,11 +73,6 @@ def _scene_figure(title: str, data: np.ndarray, cameras, fruit):
         ax.set_title(name)
         ax.set_aspect("equal", adjustable="datalim")
         ax.grid(alpha=0.3)
-    if fruit is not None:
-        for ax in (ax3d, rig):
-            ax.scatter(*fruit, color="red", marker="*", s=200, label="fruit", zorder=5)
-        for ax, (_, i, j) in zip(ortho, PANELS):
-            ax.plot(fruit[i], fruit[j], "r*", ms=15)
     return fig, ax3d, ortho, rig
 
 
@@ -92,13 +86,13 @@ def _draw_gt_tracks(ax3d, ortho, rig, gt_tracks) -> None:
             ax.plot(t[:, 1 + i], t[:, 1 + j], color=GT_COLOUR, lw=GT_LW, alpha=GT_ALPHA, zorder=1)
 
 
-def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str, fruit=None,
+def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str,
                    gt_tracks: list[np.ndarray] | None = None, close: bool = True):
     """points: (N, 5) frame, x, y, z, n_views. Scatter coloured by frame number; optional
     ground-truth tracks in green."""
     gt_tracks = gt_tracks or []
     data = np.vstack([points[:, 1:4]] + [t[:, 1:4] for t in gt_tracks])
-    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras, fruit)
+    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras)
     _draw_gt_tracks(ax3d, ortho, rig, gt_tracks)
     kw = dict(c=points[:, 0], cmap=POINTS_CMAP, s=np.where(points[:, 4] >= 3, PRED_POINT_SIZE[1], PRED_POINT_SIZE[0]),
               alpha=0.9, zorder=3)
@@ -107,7 +101,7 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str, frui
     for ax, (_, i, j) in zip(ortho, PANELS):
         ax.scatter(points[:, 1 + i], points[:, 1 + j], **kw)
     fig.colorbar(sc, ax=[ax3d, *ortho, rig], shrink=0.5, label="frame")
-    if gt_tracks or fruit is not None:
+    if gt_tracks:
         ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
     fig.savefig(out_path, dpi=110)
     if close:
@@ -116,14 +110,14 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str, frui
 
 
 def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarray | None = None,
-                   fruit=None, gt_tracks: list[np.ndarray] | None = None,
+                   gt_tracks: list[np.ndarray] | None = None,
                    anchors: list[tuple[int, str, np.ndarray]] | None = None, close: bool = True):
     """Factor-graph tracks as lines (entry = triangle, exit = square); raw triangulated points
     grey; optional ground-truth tracks in green; optional annotated points
     (track id, "start" / "end", xyz) as large plus / cross markers."""
     gt_tracks = gt_tracks or []
     data = np.vstack([t.xyz for t in tracks] + [t[:, 1:4] for t in gt_tracks])
-    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras, fruit)
+    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras)
     _draw_gt_tracks(ax3d, ortho, rig, gt_tracks)
     if points is not None and len(points):
         # Only points inside the tracks' (padded) bounding box, so clutter doesn't set the scale.

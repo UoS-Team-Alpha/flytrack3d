@@ -293,7 +293,6 @@ def tracking_settings(config: dict) -> dict:
         "association_iterations": 3,
         "extend_frames": 15,
         "merge_distance": 10.0,
-        "fruit_xyz": None,
         "static_radius_px": 6.0,
         "static_min_fraction": 0.3,
         "anchor_pixel_sigma": 3.0,

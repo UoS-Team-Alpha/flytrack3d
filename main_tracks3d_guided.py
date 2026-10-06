@@ -146,7 +146,6 @@ def main():
                                  extra, {"annotation_file": str(ann_path), "objects": per_object})
     print("\n" + report)
 
-    fruit = np.asarray(s["fruit_xyz"], float) if s.get("fruit_xyz") else None
     pts = np.array([[f, *p.xyz, len(p.views)] for f, ps in points.items() for p in ps]).reshape(-1, 5)
     raw_ann = {}
     for a in annotations:
@@ -158,7 +157,7 @@ def main():
     if gt:
         title += "  |  green = ground truth"
     show = args.show and use_interactive_backend()
-    plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, fruit, gt, anchors_3d, close=not show)
+    plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, gt, anchors_3d, close=not show)
     print(f"\nSaved to {out_dir}  (tracks.csv, tracks.json, summary.txt, tracks_3d.png, "
           f"{len(reproj)} reprojection plots)")
     if show:

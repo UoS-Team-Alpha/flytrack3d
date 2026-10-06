@@ -64,9 +64,9 @@ class Track3D:
     def score(self) -> int:
         return len(self.observations)
 
-    def summary(self, fruit: np.ndarray | None = None) -> dict:
+    def summary(self) -> dict:
         steps = np.linalg.norm(np.diff(self.xyz, axis=0), axis=1)
-        out = {
+        return {
             "id": self.id,
             "start_frame": int(self.frames[0]),
             "end_frame": int(self.frames[-1]),
@@ -83,13 +83,6 @@ class Track3D:
             "reprojection_px_median": round(float(np.median(self.reproj_px)), 3) if len(self.reproj_px) else None,
             "sigma_median": round(float(np.nanmedian(self.sigma)), 3) if np.isfinite(self.sigma).any() else None,
         }
-        if fruit is not None:
-            d = np.linalg.norm(self.xyz - fruit, axis=1)
-            k = int(d.argmin())
-            out["fruit_closest_distance"] = round(float(d[k]), 3)
-            out["fruit_closest_frame"] = int(self.frames[k])
-            out["fruit_distance_at_end"] = round(float(d[-1]), 3)
-        return out
 
 
 # ----------------------------------------------------------------------------- factors

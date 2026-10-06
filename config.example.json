@@ -86,7 +86,7 @@
   },
 
   "tracking3d": {
-    "_readme": "Pixel values are in undistorted pixels; distances in world units (cameras t x t_scale). conf_threshold null = every saved prediction. min_track_extent drops tracks that barely move (static false positives). n_tracks null = keep every track that passes min_track_frames, else keep the n with the most supporting detections. fruit_xyz [x, y, z] (optional) is drawn in the plots and each track reports its closest approach. static_radius_px / static_min_fraction: before tracking, predicted detections at a spot (within static_radius_px) the detector fires on in at least static_min_fraction of a view's frames are removed as background clutter; static_min_fraction null = keep them. Keep the fraction above the share of the video a fly can sit still for.",
+    "_readme": "Pixel values are in undistorted pixels; distances in world units (cameras t x t_scale). conf_threshold null = every saved prediction. min_track_extent drops tracks that barely move (static false positives). n_tracks null = keep every track that passes min_track_frames, else keep the n with the most supporting detections. static_radius_px / static_min_fraction: before tracking, predicted detections at a spot (within static_radius_px) the detector fires on in at least static_min_fraction of a view's frames are removed as background clutter; static_min_fraction null = keep them. Keep the fraction above the share of the video a fly can sit still for.",
     "conf_threshold": null,
     "max_epipolar_px": 15,
     "max_reprojection_px": 10,
@@ -103,7 +103,6 @@
     "association_iterations": 3,
     "extend_frames": 15,
     "merge_distance": 10,
-    "fruit_xyz": null,
     "static_radius_px": 6,
     "static_min_fraction": 0.3,
     "_guided_readme": "main_tracks3d_guided.py only. anchor_pixel_sigma = trust in a hand-placed start/end point (px). A start / end is seeded by the unguided track (else tracklet) passing within anchor_gate_px of its annotation, or starting / ending up to anchor_frame_window frames away, allowing anchor_max_px_per_frame of movement per frame in between. guided_iterations = association / optimisation rounds per object.",

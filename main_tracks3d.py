@@ -14,7 +14,7 @@ From the command line, flags override the settings:
 
 Outputs go to <run>/3d/<model or ground_truth>/tracks/:
     tracks.csv               per-frame position, uncertainty and views of every track
-    tracks.json / summary.txt  per-track entry point, length, speed, fruit distance
+    tracks.json / summary.txt  per-track entry point, length, speed
     tracks_3d.png            3D + orthographic views with the raw triangulated points
     reprojection/<cam>.png   tracks projected back into each camera (calibration check)
 """
@@ -79,7 +79,6 @@ def main():
         raise SystemExit("No tracks survived. Try lowering min_tracklet_frames / min_track_frames or "
                          "raising link_max_distance (world units per frame).")
 
-    fruit = np.asarray(s["fruit_xyz"], float) if s.get("fruit_xyz") else None
     out_dir = session.out_dir("tracks")
     report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} track(s), best supported first")
     print("\n" + report)
@@ -91,7 +90,7 @@ def main():
     if gt:
         title += "  |  green = ground truth"
     show = args.show and use_interactive_backend()
-    plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, fruit, gt, close=not show)
+    plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, gt, close=not show)
     print(f"\nSaved to {out_dir}  (tracks.csv, tracks.json, summary.txt, tracks_3d.png, "
           f"{len(reproj)} reprojection plots)")
     if show:
