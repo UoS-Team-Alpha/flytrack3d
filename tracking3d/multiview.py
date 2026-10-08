@@ -299,7 +299,8 @@ def tracking_settings(config: dict) -> dict:
         "eval_match_distance": 20.0,
         "evaluate_2d": True,
         "backproj_score": 0.5,
-        "visualise_backproj": True,
+        "visualise_backproj_graph": True,
+        "visualise_backproj_video": True,
         "anchor_pixel_sigma": 3.0,
         "anchor_gate_px": 40.0,
         "anchor_frame_window": 30,
@@ -307,6 +308,8 @@ def tracking_settings(config: dict) -> dict:
         "guided_iterations": 5,
     }
     user = {k: v for k, v in config.get("tracking3d", {}).items() if not k.startswith("_")}
+    if "visualise_backproj" in user:   # old name of visualise_backproj_graph
+        user.setdefault("visualise_backproj_graph", user.pop("visualise_backproj"))
     return {**defaults, **user}
 
 

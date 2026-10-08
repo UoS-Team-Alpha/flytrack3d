@@ -5,13 +5,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import cv2
 import matplotlib
 import numpy as np
+from tqdm import tqdm
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from evaluate2d.visualise import GT_COLOUR, _first_image, _safe_name  # noqa: E402
+from evaluate2d.datasets import Frame, iter_frame_images  # noqa: E402
+from evaluate2d.visualise import GT_COLOUR, VideoWriter, _first_image, _safe_name  # noqa: E402
 
 # tab10 without green: green is reserved for ground truth, as in the 2D plots.
 TRACK_COLOURS = tuple(c for i, c in enumerate(plt.get_cmap("tab10").colors) if i != 2)
@@ -22,6 +25,9 @@ GT_LW, GT_ALPHA = 6.0, 0.35
 PRED_POINT_SIZE = (1.5, 4.0)   # scatter size for 2-view, 3-view points
 PRED_TRACK_LW = 1.2
 PANELS = (("top  (X-Y)", 0, 1), ("front  (X-Z)", 0, 2))   # orthographic panels
+# Back-projection videos (BGR): detector boxes, ground truth, boxes the factor graph inserted.
+VIDEO_DET_BGR, VIDEO_BACKPROJ_BGR = (255, 120, 0), (0, 0, 255)
+VIDEO_GT_BGR = tuple(int(255 * c) for c in GT_COLOUR[::-1])
 
 
 def use_interactive_backend() -> bool:
@@ -203,3 +209,51 @@ def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100,
         plt.close(fig)
         saved.append(path)
     return saved
+
+
+def _legend(img: np.ndarray, entries: list[tuple[tuple, bool, bool, str]], title: str) -> None:
+    """Top-left legend on a translucent dark panel. entries: (colour, box sample, dot sample, text)."""
+    font, scale, row = cv2.FONT_HERSHEY_SIMPLEX, 0.6, 26
+    width = 60 + max(cv2.getTextSize(t, font, scale, 1)[0][0] for t in [title] + [e[3] for e in entries])
+    x2, y2 = min(width, img.shape[1]), min(row * (len(entries) + 1) + 12, img.shape[0])
+    img[:y2, :x2] = (img[:y2, :x2] * 0.35).astype(img.dtype)
+    cv2.putText(img, title, (10, row), font, scale, (255, 255, 255), 1, cv2.LINE_AA)
+    for i, (bgr, box, dot, text) in enumerate(entries, 2):
+        y = row * i
+        if box:
+            cv2.rectangle(img, (12, y - 14), (40, y + 2), bgr, 1)
+        if dot:
+            cv2.circle(img, (26, y - 6), 2, bgr, -1, cv2.LINE_AA)
+        cv2.putText(img, text, (50, y), font, scale, bgr, 1, cv2.LINE_AA)
+
+
+def save_backproj_video(frames: list[Frame], preds: dict[str, np.ndarray], inserted: dict[str, np.ndarray],
+                        track_points: dict[str, np.ndarray], path: Path, name: str, det_label: str, conf: float,
+                        fps: float = 30.0, crf: int = 26) -> Path:
+    """One video of a camera's frames: detector boxes (conf >= conf) in thin blue, ground truth in
+    green, the factor-graph tracks reprojected as a red dot in every frame (on top of the detector
+    box where there is one, to show how well the track follows it), and the boxes inserted where the
+    detector has none in thin red. Boxes are (M, >=4) x1, y1, x2, y2 and track_points (N, 2) x, y,
+    in raw pixels, keyed by frame key."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entries = [(VIDEO_DET_BGR, True, False, f"{det_label} (conf >= {conf:g})")]
+    if any(len(f.gt) for f in frames):
+        entries.append((VIDEO_GT_BGR, True, False, "ground truth"))
+    entries += [(VIDEO_BACKPROJ_BGR, False, True, "factor-graph track, reprojected (every frame)"),
+                (VIDEO_BACKPROJ_BGR, True, False, "factor graph, box inserted where the detector has none")]
+    empty = np.zeros((0, 6))
+    with VideoWriter(path, (frames[0].width, frames[0].height), fps, crf) as writer:
+        for f, rgb in tqdm(iter_frame_images(frames), total=len(frames), desc=f"Video [{name}]", unit="frame",
+                           leave=False):
+            img = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            p = preds.get(f.key, empty)
+            ins = inserted.get(f.key, empty)
+            for boxes, bgr in ((p[p[:, 4] >= conf], VIDEO_DET_BGR), (f.gt[:, 1:5], VIDEO_GT_BGR),
+                               (ins, VIDEO_BACKPROJ_BGR)):
+                for x1, y1, x2, y2 in np.round(boxes[:, :4]).astype(int):
+                    cv2.rectangle(img, (x1, y1), (x2, y2), bgr, 1)
+            for x, y in np.round(track_points.get(f.key, np.zeros((0, 2)))).astype(int):
+                cv2.circle(img, (x, y), 2, VIDEO_BACKPROJ_BGR, -1, cv2.LINE_AA)
+            _legend(img, entries, f"{name}  |  {f.key.rsplit('/', 1)[-1]}")
+            writer.write(img)
+    return path

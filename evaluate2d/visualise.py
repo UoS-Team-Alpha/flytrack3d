@@ -12,7 +12,10 @@ it is not a tracking metric.
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from collections import OrderedDict
+from functools import lru_cache
 from pathlib import Path
 
 import cv2
@@ -152,6 +155,58 @@ def save_track_plots(frames: list[Frame], preds: dict[str, np.ndarray], out_dir:
 
 
 # ----------------------------------------------------------------------------- video
+
+@lru_cache(maxsize=1)
+def _ffmpeg_h264() -> str | None:
+    """Path of an ffmpeg binary with libx264, if there is one."""
+    exe = shutil.which("ffmpeg")
+    if not exe:
+        return None
+    try:
+        encoders = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, text=True).stdout
+    except OSError:
+        return None
+    return exe if "libx264" in encoders else None
+
+
+class VideoWriter:
+    """MP4 writer for BGR frames: H.264 through ffmpeg when it is installed (far smaller files at
+    full resolution; crf 18 = near lossless, 28 = small, small objects still visible), else
+    OpenCV's mp4v."""
+
+    def __init__(self, path: Path, size: tuple[int, int], fps: float, crf: int = 26):
+        self.path, self.proc, self.cv = path, None, None
+        exe = _ffmpeg_h264()
+        if exe:
+            w, h = size
+            self.proc = subprocess.Popen(
+                [exe, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}",
+                 "-r", f"{fps:g}", "-i", "-", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libx264",
+                 "-preset", "medium", "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                 str(path)], stdin=subprocess.PIPE)
+        else:
+            self.cv = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, size)
+
+    def write(self, bgr: np.ndarray) -> None:
+        if self.proc:
+            self.proc.stdin.write(np.ascontiguousarray(bgr).tobytes())
+        else:
+            self.cv.write(bgr)
+
+    def close(self) -> None:
+        if self.proc:
+            self.proc.stdin.close()
+            if self.proc.wait():
+                raise IOError(f"ffmpeg failed writing {self.path}")
+        else:
+            self.cv.release()
+
+    def __enter__(self) -> "VideoWriter":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
 
 def _draw_boxes(img: np.ndarray, boxes: np.ndarray, colour_rgb, with_score: bool) -> None:
     bgr = tuple(int(255 * c) for c in colour_rgb[::-1])

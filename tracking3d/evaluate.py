@@ -17,6 +17,13 @@
         + factor graph   plus the inserted boxes
         on tracks only   only the predictions a track used, plus the inserted boxes
                          (everything the factor graph rejected is dropped)
+
+With visualise_backproj_graph or visualise_backproj_video, the inserted boxes are also saved as
+YOLO labels, laid out like the run's predictions (one folder per input, one .txt per frame,
+"class xc yc w h score", plus data.yaml): reprojection/labels/<input>/<sequence>/<frame>.txt.
+visualise_backproj_video renders reprojection/<camera>.mp4 per camera: detector boxes in blue,
+ground truth in green, every track's reprojected position as a red dot (also where the detector
+has a box, to show how well the track follows it) and the inserted boxes in red.
 """
 
 from __future__ import annotations
@@ -29,12 +36,14 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from evaluate2d.datasets import Dataset, load_dataset
-from evaluate2d.evaluate_models import PRED_DIR, _fmt, _pr_key, eval_settings, evaluate, load_predictions
-from evaluate2d.visualise import frame_number, save_track_plots
+from evaluate2d.datasets import Dataset, load_dataset, read_class_names
+from evaluate2d.evaluate_models import (PRED_DIR, _fmt, _pr_key, eval_settings, evaluate, load_predictions,
+                                        save_predictions)
+from evaluate2d.visualise import _safe_name, frame_number, save_track_plots
 
 from .factor_graph import Track3D
 from .multiview import View
+from .visualise import save_backproj_video
 
 VARIANTS = ("detector", "+ factor graph", "on tracks only")
 
@@ -209,6 +218,21 @@ def backproject(tracks: list[Track3D], views: list[View], data: list[ViewData],
     return [{k: np.array(b) for k, b in ins.items()} for ins in inserted], on_track
 
 
+def project_tracks(tracks: list[Track3D], views: list[View], data: list[ViewData]) -> list[dict]:
+    """Per view: {frame key: (N, 2) x, y} of every track projected into the image (full camera
+    model, with distortion), in every frame it is in front of the camera and inside the image."""
+    points: list[dict] = [{} for _ in views]
+    for t in tracks:
+        for v, view in enumerate(views):
+            (w, h), cam = view.size, view.camera
+            depth, uv = cam.depth(t.xyz), cam.project(t.xyz, distort=True)
+            for f, d, (x, y) in zip(t.frames, depth, uv):
+                key = data[v].keys.get(int(f))
+                if key is not None and d > 0 and 0 <= x < w and 0 <= y < h:
+                    points[v].setdefault(key, []).append((x, y))
+    return [{k: np.array(p) for k, p in pts.items()} for pts in points]
+
+
 def _variants(d: ViewData, ins: dict, on: dict) -> dict[str, dict]:
     empty = np.zeros((0, 6))
     plus = {k: np.vstack([p, ins.get(k, empty)]) for k, p in d.preds.items()}
@@ -263,8 +287,9 @@ def format_2d(r: dict, data: list[ViewData], score: float) -> str:
 
 def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: list[np.ndarray] | None,
                     out_dir: Path) -> list[str]:
-    """Writes evaluation_3d.txt, evaluation_2d.txt, evaluation.json and track_plots_backproj/ (as
-    enabled in tracking3d). Returns the lines to print."""
+    """Writes evaluation_3d.txt, evaluation_2d.txt, evaluation.json, track_plots_backproj/ and the
+    back-projected labels and videos in reprojection/ (as enabled in tracking3d). Returns the lines
+    to print."""
     s, msgs, results = session.settings, [], {}
     if session.source != "pred":
         return ["Evaluation skipped: tracks built from the ground-truth labels."]
@@ -276,7 +301,7 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
     else:
         msgs.append("3D evaluation skipped: no ground-truth 3D points for this run.")
 
-    if s["evaluate_2d"] or s["visualise_backproj"]:
+    if s["evaluate_2d"] or s["visualise_backproj_graph"] or s["visualise_backproj_video"]:
         es = eval_settings(config)
         data = [load_view_data(session, v, es) for v in session.views]
         inserted, on_track = backproject(tracks, session.views, data, float(s["backproj_score"]))
@@ -289,8 +314,21 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
             msgs.append(text)
         elif s["evaluate_2d"]:
             msgs.append("2D evaluation skipped: this run has no ground-truth labels.")
-        if s["visualise_backproj"]:
-            vis = config.get("visualisation", {})
+        vis = config.get("visualisation", {})
+        if s["visualise_backproj_graph"] or s["visualise_backproj_video"]:
+            label_dir = out_dir / "reprojection" / "labels"
+            for v, d, ins in zip(session.views, data, inserted):
+                pred_dir = session.run.path / v.input_name / session.model / PRED_DIR
+                save_predictions(label_dir / v.input_name, d.ds, ins,
+                                 d.ds.class_names or read_class_names(pred_dir / "data.yaml"))
+            msgs.append(f"Back-projected labels: {label_dir}  ({n_ins} boxes inserted over all views)")
+        if s["visualise_backproj_video"]:
+            points = project_tracks(tracks, session.views, data)
+            for v, d, ins, pts in zip(session.views, data, inserted, points):
+                save_backproj_video(d.ds.frames, d.preds, ins, pts, out_dir / "reprojection" / f"{_safe_name(v.name)}.mp4",
+                                    v.name, session.model, d.conf, fps=float(vis.get("video_fps", 30)))
+            msgs.append(f"Back-projection videos: {out_dir / 'reprojection'}/<camera>.mp4")
+        if s["visualise_backproj_graph"]:
             plot_dir = out_dir / "track_plots_backproj"
             for v, d, ins in zip(session.views, data, inserted):
                 save_track_plots(d.ds.frames, d.preds, plot_dir, session.model, d.conf,
