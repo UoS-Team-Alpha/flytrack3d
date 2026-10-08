@@ -66,6 +66,8 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
+    # Step 1 - load every camera's detections: conf filter, frame offset, undistortion,
+    # static-clutter removal (tracking3d/multiview.py: load_views, remove_static_detections).
     session = open_session(config, args.run, args.model, args.source, args.conf)
     views, s = session.views, session.settings
     if args.n_tracks is not None:
@@ -73,6 +75,8 @@ def main():
     cams = [v.camera for v in views]
     print("\nCamera rig:\n" + "\n".join(camera_baseline_report(cams)))
 
+    # Step 2 - per frame: match detections across views (epipolar Hungarian) and triangulate
+    # groups seen by >= 2 views (tracking3d/triangulate.py: match_frame).
     points = triangulate_session(cams, [v.dets for v in views],
                                  MatchSettings(s["max_epipolar_px"], s["max_reprojection_px"]))
     n_pts = sum(len(p) for p in points.values())
@@ -80,12 +84,15 @@ def main():
     if not n_pts:
         raise SystemExit("No detections could be matched across views - check the calibration.")
 
+    # Steps 3-5 - link points into tracklets, refine each with the factor graph, then merge,
+    # filter and rank the tracks (tracking3d/factor_graph.py: build_tracks).
     tracks, tracklets = build_tracks(views, points, s)
     print(f"Linked {len(tracklets)} tracklets (>= {s['min_tracklet_frames']} frames) -> {len(tracks)} tracks")
     if not tracks:
         raise SystemExit("No tracks survived. Try lowering min_tracklet_frames / min_track_frames or "
                          "raising link_max_distance (world units per frame).")
 
+    # Step 6 - outputs, then the 3D / 2D evaluation against ground truth (if the run has labels).
     out_dir = session.factor_graph_dir("tracks")
     report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} track(s), best supported first",
                                  params={"mode": "unguided", "evaluation": config.get("evaluation", {})})

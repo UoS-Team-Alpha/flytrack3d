@@ -235,9 +235,9 @@ def load_views(run: RunInfo, model: str, cam_cfg: dict, source: str = "pred",
             if conf_threshold is not None:
                 c = c[c[:, 2] >= conf_threshold]
             if len(c):
-                f = fno + camera.frame_offset
+                f = fno + camera.frame_offset   # align: frame f is the same instant in every view
                 raw[f] = c
-                dets[f] = np.hstack([camera.undistort(c[:, :2]), c[:, 2:3]])
+                dets[f] = np.hstack([camera.undistort(c[:, :2]), c[:, 2:3]])   # to ideal pinhole pixels
         src = meta.get("source", {})
         views.append(View(camera, inp, size, raw, dets, _background(src, size), src))
     return views
@@ -357,6 +357,7 @@ def open_session(config: dict, run: str | None, model: str | None, source: str,
     print(f"\nDetections ({'ground truth' if source == 'gt' else chosen}"
           f"{'' if source == 'gt' or settings['conf_threshold'] is None else f', conf >= {settings['conf_threshold']}'}):")
     print("\n".join(views_summary(views)))
+    # Clutter mask: drop detections the detector fires on at the same spot in most frames.
     if source == "pred" and settings["static_min_fraction"]:
         removed = [remove_static_detections(v, settings["static_radius_px"], settings["static_min_fraction"])
                    for v in views]

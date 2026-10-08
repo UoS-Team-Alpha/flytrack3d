@@ -108,6 +108,7 @@ def main():
     args = parser.parse_args()
 
     config = load_config(args.config)
+    # Step 1 - load detections, as in main_tracks3d.py.
     session = open_session(config, args.run, args.model, args.source, args.conf)
     views, s = session.views, session.settings
     cams = [v.camera for v in views]
@@ -119,10 +120,13 @@ def main():
         raise SystemExit("No annotations - nothing to track.")
     print("\nAnnotated objects:\n" + "\n".join(describe_annotations(annotations, [v.name for v in views])))
 
+    # Step 2 - cross-view matching and triangulation, as in main_tracks3d.py.
     points = triangulate_session(cams, [v.dets for v in views],
                                  MatchSettings(s["max_epipolar_px"], s["max_reprojection_px"]))
     print(f"\nTriangulated {sum(len(p) for p in points.values())} points in {len(points)} frames")
 
+    # Steps 3-5 - the unguided pipeline builds candidate seeds, then one factor graph per
+    # annotated object (tracking3d/guided.py: build_guided_tracks).
     tracks, objects, warnings = build_guided_tracks(views, points, annotations, s)
     by_id = {o.id: o for o in objects}
     extra = ["Annotations"] + describe_annotations(annotations, [v.name for v in views]) + ["", "Guidance"]
@@ -142,6 +146,7 @@ def main():
     if not tracks:
         raise SystemExit("\n".join(["No object could be tracked."] + warnings))
 
+    # Step 6 - outputs and evaluation.
     out_dir = session.factor_graph_dir("guided")
     report = write_track_outputs(session, tracks, s, out_dir, f"{len(tracks)} annotated object(s), by object number",
                                  extra, {"annotation_file": str(ann_path), "objects": per_object},

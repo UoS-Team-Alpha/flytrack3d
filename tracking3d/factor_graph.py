@@ -113,9 +113,11 @@ def _solve(frames: np.ndarray, init: np.ndarray, obs: list[tuple[int, int, int]]
                                          gtsam.noiseModel.Isotropic.Sigma(2, s["pixel_sigma"]))
     acc = gtsam.noiseModel.Isotropic.Sigma(3, s["accel_sigma"])
     weak = gtsam.noiseModel.Isotropic.Sigma(3, WEAK_PRIOR_SIGMA)
+    # Variables: one 3D position per frame (detected or not), each with a very weak prior.
     for k, p in enumerate(init):
         values.insert(X(k), gtsam.Point3(*p))
         graph.add(gtsam.PriorFactorPoint3(X(k), gtsam.Point3(*p), weak))
+    # Reprojection factors: one per associated 2D detection (Huber-robust).
     for k, v, j in obs:
         xy = views[v].dets[int(frames[k])][j, :2]
         graph.add(gtsam.TriangulationFactorCal3_S2(gcams[v], gtsam.Point2(*xy), pix, X(k)))
@@ -123,9 +125,11 @@ def _solve(frames: np.ndarray, init: np.ndarray, obs: list[tuple[int, int, int]]
         anchor_noise = gtsam.noiseModel.Isotropic.Sigma(2, s["anchor_pixel_sigma"])
         for k, v, xy in anchors:
             graph.add(gtsam.TriangulationFactorCal3_S2(gcams[v], gtsam.Point2(*xy), anchor_noise, X(k)))
+    # Constant-velocity factors over every 3 consecutive frames - these bridge missed detections.
     for k in range(1, len(frames) - 1):
         graph.add(gtsam.CustomFactor(acc, [X(k - 1), X(k), X(k + 1)], _accel_error))
 
+    # Solve all factors jointly (Levenberg-Marquardt).
     params = gtsam.LevenbergMarquardtParams()
     params.setMaxIterations(100)
     result = gtsam.LevenbergMarquardtOptimizer(graph, values, params).optimize()
@@ -211,13 +215,17 @@ def optimise_track(seed: np.ndarray, views: list[View], gcams: list, s: dict,
     obs: list = []
     iterations = max(1, int(s["association_iterations"]))
     for it in range(iterations):
+        # Extend both ends at the current velocity.
         frames, xyz = _extend(frames, xyz, int(s["extend_frames"]), *frame_range)
+        # Associate: nearest detection in every view (incl. ones triangulation discarded).
         obs = _associate(frames, xyz, views, s["association_gate_px"])
         if not obs:
             return None
+        # Trim the ends back to where detections were actually found.
         k0, k1 = _main_run([o[0] for o in obs], int(s["link_max_frame_gap"]))
         frames, xyz = frames[k0:k1 + 1], xyz[k0:k1 + 1]
         obs = [(k - k0, v, j) for k, v, j in obs if k0 <= k <= k1]
+        # Solve; per-frame 3D uncertainty only on the last round.
         xyz, sigma = _solve(frames, xyz, obs, views, gcams, s, with_sigma=(it == iterations - 1))
 
     n_views = np.bincount([k for k, _, _ in obs], minlength=len(frames))
@@ -260,12 +268,14 @@ def link_points(points: dict[int, list[Point3D]], s: dict) -> list[np.ndarray]:
 
 def build_tracks(views: list[View], points: dict[int, list[Point3D]], s: dict) -> tuple[list[Track3D], list[np.ndarray]]:
     """Returns (tracks ranked best first, the tracklets that seeded them)."""
+    # Step 3: link triangulated points over time into seed tracklets.
     tracklets = link_points(points, s)
     gcams = [gtsam_camera(v.camera) for v in views]
     all_frames = [f for v in views for f in v.dets]
     frame_range = (min(all_frames), max(all_frames)) if all_frames else (0, 0)
 
     tracks: list[Track3D] = []
+    # Step 4: refine each tracklet with the factor graph (step 5's skip / merge happen inline).
     for seed in tqdm(tracklets, desc="Factor graph", unit="tracklet", dynamic_ncols=True):
         if any(_covered(seed, t, s["merge_distance"]) for t in tracks):
             continue  # a fragment of a track that is already estimated
@@ -282,6 +292,7 @@ def build_tracks(views: list[View], points: dict[int, list[Point3D]], s: dict) -
                 else max(tr, other, key=lambda t: t.score)
         tracks.append(tr)
 
+    # Step 5: drop stationary tracks, rank by support, keep the best n_tracks.
     tracks = [t for t in tracks if t.extent >= float(s["min_track_extent"])]  # stationary false positives
     tracks.sort(key=lambda t: t.score, reverse=True)
     if s.get("n_tracks"):

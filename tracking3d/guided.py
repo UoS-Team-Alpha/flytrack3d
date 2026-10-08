@@ -220,6 +220,7 @@ def build_guided_tracks(views: list[View], points: dict[int, list[Point3D]], ann
     objects, warnings = objects_from_annotations(annotations, views)
     # Candidate seeds: the unguided factor-graph tracks (static false positives already dropped),
     # then the raw triangulated tracklets.
+    # Steps 3-4 of the unguided pipeline, run only to produce candidate seeds.
     unguided, tracklets = build_tracks(views, points, {**s, "n_tracks": None})
     candidates = ([(f"unguided track {t.id}", t.frames, t.xyz) for t in unguided]
                   + [(f"a {len(t)}-frame tracklet", t[:, 0], t[:, 1:4]) for t in tracklets])
@@ -232,12 +233,14 @@ def build_guided_tracks(views: list[View], points: dict[int, list[Point3D]], ann
     claimed: set = set()
     tracks = []
     for obj in tqdm(order, desc="Guided factor graph", unit="object", dynamic_ncols=True):
+        # Starting guess from the clicks: nearest candidate, triangulated / ray-placed clicks, interpolated.
         seed = _seed(obj, candidates, views, s)
         if seed is None:
             warnings.append(f"object #{obj.id}: no 3D starting point - no track or tracklet passes near its "
                             f"annotations and no frame is annotated in 2+ views. Annotate it in a second view "
                             f"at the same frame, or nearer to where it is detected.")
             continue
+        # Fresh factor graph with the clicks as trusted anchor factors, then claim its detections.
         tr = optimise_guided(obj, seed, views, gcams, s, frame_range, claimed)
         claimed |= {(f, v, j) for f, v, j in tr.observations}
         if (tr.views >= 2).sum() < MIN_MULTIVIEW_FRAMES:
