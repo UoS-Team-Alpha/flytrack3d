@@ -21,9 +21,17 @@ END point per view; any of them may be left out (e.g. a start in one view only).
                S / E              suggest STARTs / ENDs in this view from the other views
                                   (epipolar geometry, see gui/suggest.py); marked "?",
                                   delete or replace them like any annotation
+               g                  go to the instant of the selected object's START / END
+                                  (current mode) in another view
                Enter              continue to the next view (finish on the last)
                Backspace          back to the previous view
                Esc                cancel everything
+
+Views are synchronised with each camera's frame_offset (frame + frame_offset = the same
+instant in every view): switching view opens it at the instant you were looking at, the
+panel shows the matching frame in every other view, and when the same object's START (or
+END) is annotated in two views at instants that differ, it shows the offset that would
+line them up - annotate one sharp event (e.g. a take-off) in every view to find an offset.
 
 Annotations are returned as plain dicts:
     {"object": 1, "view": "344-above", "kind": "start", "frame": 214,
@@ -60,7 +68,7 @@ FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 PANEL_W = 400
 TIMELINE_H = 54
-MIN_H = 780
+MIN_H = 830
 MAX_VIEW_W, MAX_VIEW_H = 1280, 820
 SNAP_PX = 14          # display pixels within which a click snaps to a detection
 DRAG_MIN_PX = 4       # display pixels: shorter drags count as clicks
@@ -173,7 +181,7 @@ class AnnotationGUI:
     def run(self) -> list[dict] | None:
         cv2.namedWindow(self.window, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
         cv2.setMouseCallback(self.window, self._on_mouse)
-        self._open_view(0)
+        self._open_view(0, sync=False)
         try:
             while self.done is None:
                 cv2.imshow(self.window, self._render())
@@ -204,7 +212,29 @@ class AnnotationGUI:
     def frame_no(self) -> int:
         return self.view.frame_numbers[self.pos]
 
-    def _open_view(self, vi: int) -> None:
+    @staticmethod
+    def _offset(view: ViewInput) -> int:
+        return view.camera.frame_offset if view.camera is not None else 0
+
+    def _instant(self) -> int:
+        """The current frame on the shared timeline (frame + this view's frame_offset)."""
+        return self.frame_no + self._offset(self.view)
+
+    def _frame_at(self, view: ViewInput, instant: int) -> int:
+        """view's label frame number at a shared-timeline instant."""
+        return instant - self._offset(view)
+
+    def _seek_instant(self, instant: int) -> str:
+        """Seek the current view to an instant; returns a note if it is outside this video."""
+        frame = self._frame_at(self.view, instant)
+        nums = np.asarray(self.view.frame_numbers)
+        self._seek(int(np.abs(nums - frame).argmin()))
+        if frame < nums.min() or frame > nums.max():
+            return f" ({frame} not in video)"
+        return ""
+
+    def _open_view(self, vi: int, sync: bool = True) -> None:
+        instant = self._instant() if sync and self.source else None
         if self.source:
             self.source.close()
         self.vi = vi
@@ -221,6 +251,9 @@ class AnnotationGUI:
         cv2.resizeWindow(self.window, *self.canvas_size)
         self.table_scroll = 0
         self.status = f"View {vi + 1}/{len(self.views)}: {self.view.name}"
+        if instant is not None:
+            note = self._seek_instant(instant)
+            self.status += f", synced to {self.frame_no}{note}"
 
     def _seek(self, pos: int) -> None:
         self.positions[self.vi] = int(np.clip(pos, 0, len(self.source) - 1))
@@ -290,6 +323,40 @@ class AnnotationGUI:
             self.obj, self.mode = new[0]["object"], kind
             self._seek(list(self.view.frame_numbers).index(new[0]["frame"]))
 
+    def _goto_other(self) -> None:
+        """Seek to the instant of the selected object's `mode` point in another view
+        (hand-placed points first, then the nearest view after this one)."""
+        n = len(self.views)
+        order = {self.views[(self.vi + k) % n].name: k for k in range(1, n)}
+        cands = [a for a in self.ann if a["object"] == self.obj and a["kind"] == self.mode and a["view"] in order]
+        if not cands:
+            self.status = f"#{self.obj} has no {self.mode.upper()} in another view"
+            return
+        a = min(cands, key=lambda a: (bool(a.get("suggested")), order[a["view"]]))
+        other = next(v for v in self.views if v.name == a["view"])
+        note = self._seek_instant(a["frame"] + self._offset(other))
+        self.status = f"At #{self.obj} {self.mode.upper()} of {a['view']} (its frame {a['frame']}){note}"
+
+    def _offset_hints(self) -> list[str]:
+        """For the selected object's `mode` point here and in each other view: the offset for
+        this view that would put both at the same instant, when they are not already."""
+        here = next((a for a in self._view_ann() if a["object"] == self.obj and a["kind"] == self.mode
+                     and not a.get("suggested")), None)
+        if here is None:
+            return []
+        off = self._offset(self.view)
+        hints = []
+        for v in self.views:
+            a = next((a for a in self.ann if a["object"] == self.obj and a["kind"] == self.mode
+                      and a["view"] == v.name and not a.get("suggested")), None)
+            if v is self.view or a is None:
+                continue
+            want = a["frame"] + self._offset(v) - here["frame"]
+            if want != off:
+                hints.append(f"#{self.obj} {self.mode.upper()} vs {v.name[:12]}: {want - off:+d} fr"
+                             f" -> offset {want:+d} would match")
+        return hints
+
     def _delete_near(self, x: float, y: float) -> None:
         here = [a for a in self._view_ann() if a["frame"] == self.frame_no]
         if not here:
@@ -329,6 +396,7 @@ class AnnotationGUI:
             ord("n"): self._new_object, ord("["): lambda: self._step_object(-1),
             ord("]"): lambda: self._step_object(1), ord("h"): self._toggle_dets, ord("l"): self._toggle_epipolar,
             ord("S"): lambda: self._suggest("start"), ord("E"): lambda: self._suggest("end"),
+            ord("g"): self._goto_other,
             13: self._continue, 10: self._continue, 8: self._back, 27: self._cancel,
         }
         if ord("1") <= ch <= ord("9"):
@@ -450,7 +518,7 @@ class AnnotationGUI:
          "next_obj": lambda: self._step_object(1), "m10": lambda: self._seek(self.pos - 10),
          "m1": lambda: self._seek(self.pos - 1), "p1": lambda: self._seek(self.pos + 1),
          "p10": lambda: self._seek(self.pos + 10), "goto": self._start_input, "dets": self._toggle_dets, "epipolar": self._toggle_epipolar,
-         "clear_view": self._clear_view, "sugg_start": lambda: self._suggest("start"),
+         "clear_view": self._clear_view, "goto_other": self._goto_other, "sugg_start": lambda: self._suggest("start"),
          "sugg_end": lambda: self._suggest("end"), "back": self._back, "continue": self._continue,
          "cancel": self._cancel}[name]()
 
@@ -585,6 +653,20 @@ class AnnotationGUI:
                     TEXT, 2, cv2.LINE_AA)
         y += 20
         cv2.putText(canvas, self.view.label[-48:], (L, y), FONT, 0.38, DIM, 1, cv2.LINE_AA)
+        y += 18
+        cv2.putText(canvas, f"frame offset {self._offset(self.view):+d}   same instant in:", (L, y), FONT, 0.38,
+                    DIM, 1, cv2.LINE_AA)
+        y += 16
+        same = []
+        for v in self.views:
+            if v is not self.view:
+                f = self._frame_at(v, self._instant())
+                inside = v.frame_numbers[0] <= f <= v.frame_numbers[-1]
+                same.append(f"{v.name[:12]} {f if inside else 'none'}")
+        cv2.putText(canvas, "   ".join(same)[:62], (L, y), FONT, 0.38, TEXT, 1, cv2.LINE_AA)
+        for hint in self._offset_hints()[:2]:
+            y += 16
+            cv2.putText(canvas, hint[:62], (L, y), FONT, 0.38, (120, 200, 255), 1, cv2.LINE_AA)
         for i in range(len(self.views)):   # progress dots
             c = ACCENT if i == self.vi else (TEXT if self.visited[i] else (90, 90, 90))
             cv2.circle(canvas, (x0 + W - 20 - 18 * (len(self.views) - 1 - i), 52), 6, c, -1, cv2.LINE_AA)
@@ -625,7 +707,8 @@ class AnnotationGUI:
         self._button_draw(canvas, "sugg_start", L, y, half, 28, "suggest starts (S)", (40, 90, 40))
         self._button_draw(canvas, "sugg_end", L + half + 10, y, half, 28, "suggest ends (E)", (40, 40, 110))
         y += 34
-        self._button_draw(canvas, "clear_view", L, y, bw, 24, "clear this view", (50, 50, 110))
+        self._button_draw(canvas, "goto_other", L, y, half, 24, f"#{self.obj} {self.mode} elsewhere (g)")
+        self._button_draw(canvas, "clear_view", L + half + 10, y, half, 24, "clear this view", (50, 50, 110))
 
         # annotations table (this view)
         y += 42
