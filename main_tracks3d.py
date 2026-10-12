@@ -32,6 +32,7 @@ from pathlib import Path
 
 import numpy as np
 
+from arena_plotting import locate_arena
 from evaluate2d.config import load_config
 from tracking3d.evaluate import evaluate_tracks
 from tracking3d.factor_graph import build_tracks
@@ -49,6 +50,7 @@ MODEL = None         # model in that run; None = the only one, or choose in the 
 SOURCE = "pred"      # "pred" = the run's predictions, "gt" = its ground-truth labels
 N_TRACKS = None      # keep the n best tracks; None = tracking3d.n_tracks (null = every valid track)
 GT_OVERLAY = True    # draw the run's ground truth (triangulated + linked, no factor graph) in green
+ARENA = True         # draw the fake fruit and leaves, found by HSV in each view (config arena_plotting)
 SHOW = True          # open an interactive (rotatable) 3D window after saving
 # =====================================================================================
 
@@ -64,6 +66,8 @@ def main():
     parser.add_argument("--conf", type=float, default=None, help="Override tracking3d.conf_threshold.")
     parser.add_argument("--gt-overlay", action=argparse.BooleanOptionalAction, default=GT_OVERLAY,
                         help="Overlay ground-truth 3D tracks in green (ignored with --source gt).")
+    parser.add_argument("--arena", action=argparse.BooleanOptionalAction, default=ARENA,
+                        help="Draw the fake fruit and its leaves (found by HSV in every view).")
     parser.add_argument("--show", action=argparse.BooleanOptionalAction, default=SHOW)
     args = parser.parse_args()
 
@@ -104,13 +108,15 @@ def main():
     print("\n" + "\n\n".join(evaluate_tracks(session, config, tracks, gt, out_dir)))
 
     pts = np.array([[f, *p.xyz, len(p.views)] for f, ps in points.items() for p in ps])
-    save_reprojection_plots(tracks, views, out_dir / "reprojection")
+    arena = locate_arena(session, config) if args.arena else None
+    save_reprojection_plots(tracks, views, out_dir / "reprojection", arena=arena)
     title = f"{session.run.name}  |  {session.label}  |  {len(tracks)} tracks (triangle = entry, square = exit)"
     gt = gt if args.gt_overlay else None
     if gt:
         title += "  |  green = ground truth"
     show = args.show and use_interactive_backend()
-    plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, gt, close=not show)
+    plot_tracks_3d(tracks, cams, out_dir / "tracks_3d.png", title, pts, gt, close=not show,
+                   arena=arena)
     print(f"\nSaved to {out_dir}")
     if show:
         import matplotlib.pyplot as plt

@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
+from arena_plotting import locate_arena
 from evaluate2d.config import load_config
 from tracking3d.multiview import ground_truth_tracks, open_session
 from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session
@@ -36,6 +37,7 @@ RUN = None           # run folder name or path; None = choose in the terminal
 MODEL = None         # model in that run; None = the only one, or choose in the terminal
 SOURCE = "pred"      # "pred" = the run's predictions, "gt" = its ground-truth labels
 GT_OVERLAY = True    # draw the run's ground truth (triangulated + linked, no factor graph) in green
+ARENA = True         # draw the fake fruit and leaves, found by HSV in each view (config arena_plotting)
 SHOW = True          # open an interactive (rotatable) 3D window after saving
 # =====================================================================================
 
@@ -49,6 +51,8 @@ def main():
     parser.add_argument("--conf", type=float, default=None, help="Override tracking3d.conf_threshold.")
     parser.add_argument("--gt-overlay", action=argparse.BooleanOptionalAction, default=GT_OVERLAY,
                         help="Overlay ground-truth 3D tracks in green (ignored with --source gt).")
+    parser.add_argument("--arena", action=argparse.BooleanOptionalAction, default=ARENA,
+                        help="Draw the fake fruit and its leaves (found by HSV in every view).")
     parser.add_argument("--show", action=argparse.BooleanOptionalAction, default=SHOW)
     args = parser.parse_args()
 
@@ -89,8 +93,10 @@ def main():
     gt = ground_truth_tracks(session, config["cameras"]) if args.gt_overlay and args.source == "pred" else None
     if gt:
         title += "  |  green = ground truth"
+    arena = locate_arena(session, config) if args.arena else None
     show = args.show and use_interactive_backend()
-    plot_points_3d(arr, cams, out_dir / "points_3d.png", title, gt, close=not show)
+    plot_points_3d(arr, cams, out_dir / "points_3d.png", title, gt, close=not show,
+                   arena=arena)
     print(f"\nSaved {out_dir / 'points.csv'}\n      {out_dir / 'points_3d.png'}")
     if show:
         import matplotlib.pyplot as plt

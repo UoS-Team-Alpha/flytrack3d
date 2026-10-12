@@ -25,6 +25,7 @@ GT_LW, GT_ALPHA = 6.0, 0.35
 PRED_POINT_SIZE = (1.5, 4.0)   # scatter size for 2-view, 3-view points
 PRED_TRACK_LW = 1.2
 PANELS = (("top  (X-Y)", 0, 1), ("front  (X-Z)", 0, 2))   # orthographic panels
+RIG_ARENA_ALPHA = 0.25   # zoomed out to the cameras, the fruit is as small as the tracks: keep them visible
 # Back-projection videos (BGR): detector boxes, ground truth, boxes the factor graph inserted.
 VIDEO_DET_BGR, VIDEO_BACKPROJ_BGR = (255, 120, 0), (0, 0, 255)
 VIDEO_GT_BGR = tuple(int(255 * c) for c in GT_COLOUR[::-1])
@@ -92,14 +93,26 @@ def _draw_gt_tracks(ax3d, ortho, rig, gt_tracks) -> None:
             ax.plot(t[:, 1 + i], t[:, 1 + j], color=GT_COLOUR, lw=GT_LW, alpha=GT_ALPHA, zorder=1)
 
 
+def _draw_arena(ax3d, ortho, rig, arena) -> None:
+    """Static arena objects (arena_plotting.ArenaObjects: fruit, leaves), under the tracks."""
+    arena.draw_3d(ax3d)
+    arena.draw_3d(rig, labels=False, alpha=RIG_ARENA_ALPHA)
+    for ax, (_, i, j) in zip(ortho, PANELS):
+        arena.draw_panel(ax, i, j)
+
+
 def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str,
-                   gt_tracks: list[np.ndarray] | None = None, close: bool = True):
+                   gt_tracks: list[np.ndarray] | None = None, close: bool = True,
+                   arena=None):
     """points: (N, 5) frame, x, y, z, n_views. Scatter coloured by frame number; optional
-    ground-truth tracks in green."""
+    ground-truth tracks in green and arena objects (arena_plotting.ArenaObjects)."""
     gt_tracks = gt_tracks or []
-    data = np.vstack([points[:, 1:4]] + [t[:, 1:4] for t in gt_tracks])
+    data = np.vstack([points[:, 1:4]] + [t[:, 1:4] for t in gt_tracks]
+                     + ([arena.points()] if arena else []))
     fig, ax3d, ortho, rig = _scene_figure(title, data, cameras)
     _draw_gt_tracks(ax3d, ortho, rig, gt_tracks)
+    if arena:
+        _draw_arena(ax3d, ortho, rig, arena)
     kw = dict(c=points[:, 0], cmap=POINTS_CMAP, s=np.where(points[:, 4] >= 3, PRED_POINT_SIZE[1], PRED_POINT_SIZE[0]),
               alpha=0.9, zorder=3)
     sc = ax3d.scatter(points[:, 1], points[:, 2], points[:, 3], **kw)
@@ -107,7 +120,7 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str,
     for ax, (_, i, j) in zip(ortho, PANELS):
         ax.scatter(points[:, 1 + i], points[:, 1 + j], **kw)
     fig.colorbar(sc, ax=[ax3d, *ortho, rig], shrink=0.5, label="frame")
-    if gt_tracks:
+    if gt_tracks or arena:
         ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
     fig.savefig(out_path, dpi=110)
     if close:
@@ -117,14 +130,19 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str,
 
 def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarray | None = None,
                    gt_tracks: list[np.ndarray] | None = None,
-                   anchors: list[tuple[int, str, np.ndarray]] | None = None, close: bool = True):
+                   anchors: list[tuple[int, str, np.ndarray]] | None = None, close: bool = True,
+                   arena=None):
     """Factor-graph tracks as lines (entry = triangle, exit = square); raw triangulated points
     grey; optional ground-truth tracks in green; optional annotated points
-    (track id, "start" / "end", xyz) as large plus / cross markers."""
+    (track id, "start" / "end", xyz) as large plus / cross markers; optional arena objects
+    (arena_plotting.ArenaObjects: fruit, leaves), included in the plot extent."""
     gt_tracks = gt_tracks or []
     data = np.vstack([t.xyz for t in tracks] + [t[:, 1:4] for t in gt_tracks])
-    fig, ax3d, ortho, rig = _scene_figure(title, data, cameras)
+    extent = np.vstack([data, arena.points()]) if arena else data
+    fig, ax3d, ortho, rig = _scene_figure(title, extent, cameras)
     _draw_gt_tracks(ax3d, ortho, rig, gt_tracks)
+    if arena:
+        _draw_arena(ax3d, ortho, rig, arena)
     if points is not None and len(points):
         # Only points inside the tracks' (padded) bounding box, so clutter doesn't set the scale.
         pad = 0.1 * np.ptp(data, axis=0).max()
@@ -146,7 +164,7 @@ def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarr
             ax.plot(t.xyz[-1, i], t.xyz[-1, j], "s", color=col, mec="black", ms=6)
     if anchors:
         _draw_anchors(ax3d, ortho, rig, anchors)
-    if tracks:
+    if tracks or arena:
         ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
     fig.savefig(out_path, dpi=110)
     if close:
@@ -171,10 +189,13 @@ def _draw_anchors(ax3d, ortho, rig, anchors) -> None:
 
 
 def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100,
-                            annotations: dict[str, list[tuple[int, str, float, float]]] | None = None) -> list[Path]:
+                            annotations: dict[str, list[tuple[int, str, float, float]]] | None = None,
+                            arena=None) -> list[Path]:
     """Per camera: first frame, every raw detection (grey) and the 3D tracks projected back
     through the full camera model (with distortion). Tracks that sit on the detections
-    confirm the calibration; a constant offset in one view points at its extrinsics."""
+    confirm the calibration; a constant offset in one view points at its extrinsics.
+    Arena objects (arena_plotting.ArenaObjects), if given, are outlined dashed: they should ring
+    the fruit and the leaves in the image."""
     out_dir.mkdir(parents=True, exist_ok=True)
     saved = []
     for v in views:
@@ -193,6 +214,8 @@ def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100,
             ax.plot(uv[:, 0], uv[:, 1], "-", color=col, lw=1.6, label=f"track {t.id}")
             if len(uv):
                 ax.plot(*uv[0], "^", color=col, mec="black", ms=9)
+        if arena:
+            arena.draw_image(ax, v.camera)
         for tid, kind, x, y in (annotations or {}).get(v.name, []):
             col = TRACK_COLOURS[(tid - 1) % len(TRACK_COLOURS)]
             ax.plot(x, y, ANCHOR_MARKERS[kind], color=col, mec="black", mew=1.2, ms=15, zorder=6)
