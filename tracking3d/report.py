@@ -51,6 +51,7 @@ def write_track_outputs(session, tracks: list[Track3D], s: dict, out_dir: Path, 
     (out_dir / "params.json").write_text(json.dumps({
         "created": datetime.now().isoformat(timespec="seconds"), "run": session.run.name,
         "detections": session.label, "views": {v.name: v.input_name for v in session.views},
+        "frame_offsets": {v.name: v.camera.frame_offset for v in session.views},
         **(params or {}), "tracking3d": s}, indent=2, default=str))
     with open(out_dir / "tracks_3d.csv", "w", newline="") as fh:
         w = csv.writer(fh)
