@@ -12,12 +12,15 @@ def _clean(d: dict) -> dict:
     return {k: v for k, v in (d or {}).items() if not k.startswith("_")}
 
 
-def object_settings(config: dict, name: str, top: dict, hsv: dict, mesh: dict) -> dict:
-    """config["arena_plotting"][name] with defaults filled in: top-level keys, "hsv", "mesh"."""
+def object_settings(config: dict, name: str, top: dict, mesh: dict, hsv: dict | None = None) -> dict:
+    """config["arena_plotting"][name] with defaults filled in: top-level keys, "mesh", and "hsv"
+    for objects found by segmentation."""
     user = (config.get("arena_plotting") or {}).get(name) or {}
-    return {**top, **_clean({k: v for k, v in user.items() if k not in ("hsv", "mesh")}),
-            "hsv": {**hsv, **_clean(user.get("hsv"))},
-            "mesh": {**mesh, **_clean(user.get("mesh"))}}
+    out = {**top, **_clean({k: v for k, v in user.items() if k not in ("hsv", "mesh")}),
+           "mesh": {**mesh, **_clean(user.get("mesh"))}}
+    if hsv is not None:
+        out["hsv"] = {**hsv, **_clean(user.get("hsv"))}
+    return out
 
 
 def cache_key(s: dict, views, **extra) -> dict:

@@ -76,10 +76,16 @@ def _scene_figure(title: str, data: np.ndarray, cameras):
     _draw_cameras(rig, cameras, 0.15 * np.ptp(rig_pts, axis=0).max())
     ax3d.set_title("scene")
     rig.set_title("cameras + scene (calibration check)")
-    for ax, (name, _, _) in zip(ortho, PANELS):
+    # The world is the reference camera's frame, where Y points down (as image rows do). Flip a
+    # panel's vertical axis where it runs against the cameras' mean image-up, so the arena's
+    # floor is at the bottom (the cameras are mounted upright).
+    up = np.mean([-c.R[1] for c in cameras], axis=0)
+    for ax, (name, _, j) in zip(ortho, PANELS):
         ax.set_title(name)
         ax.set_aspect("equal", adjustable="datalim")
         ax.grid(alpha=0.3)
+        if up[j] < 0:
+            ax.invert_yaxis()
     return fig, ax3d, ortho, rig
 
 
@@ -173,19 +179,20 @@ def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarr
 
 
 ANCHOR_MARKERS = {"start": "P", "end": "X"}   # annotated start / end points
+ANCHOR_COLOUR = "yellow"
+ANCHOR_SIZE, ANCHOR_RIG_SIZE = 170 / 9, 120 / 9   # scatter sizes are areas: a third of the old width
 
 
 def _draw_anchors(ax3d, ortho, rig, anchors) -> None:
     labelled = set()
-    for tid, kind, xyz in anchors:
-        col = TRACK_COLOURS[(tid - 1) % len(TRACK_COLOURS)]
+    for _, kind, xyz in anchors:
         label = f"annotated {kind}" if kind not in labelled else None
         labelled.add(kind)
-        kw = dict(color=col, marker=ANCHOR_MARKERS[kind], edgecolor="black", linewidth=1.2, zorder=6)
-        ax3d.scatter(*xyz, s=170, label=label, **kw)
-        rig.scatter(*xyz, s=120, **kw)
+        kw = dict(color=ANCHOR_COLOUR, marker=ANCHOR_MARKERS[kind], edgecolor="black", linewidth=0.5, zorder=6)
+        ax3d.scatter(*xyz, s=ANCHOR_SIZE, label=label, **kw)
+        rig.scatter(*xyz, s=ANCHOR_RIG_SIZE, **kw)
         for ax, (_, i, j) in zip(ortho, PANELS):
-            ax.scatter(xyz[i], xyz[j], s=170, **kw)
+            ax.scatter(xyz[i], xyz[j], s=ANCHOR_SIZE, **kw)
 
 
 def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100,

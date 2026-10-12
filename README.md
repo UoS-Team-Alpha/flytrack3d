@@ -27,16 +27,17 @@ Every `main_*.py` script can be run from the IDE (edit its `SETTINGS` block and 
 
 Use `--source gt` on the 3D scripts to run them on the ground-truth labels instead of the predictions.
 
-The 3D scripts also draw the red fake fruit and the green leaves around it, with no annotation needed. Both come from each view's median frame (frames sampled across the video, so the flies vanish), segmented in HSV:
+The 3D scripts also draw the red fake fruit, the green leaves around it and the arena frame, with no annotation needed. The fruit and leaves come from each view's median frame (frames sampled across the video, so the flies vanish), segmented in HSV:
 
 - **Fruit:** round, saturated red blobs are candidates. The combination of one blob per view that triangulates consistently is the fruit, which gives the centre of its base on the wall. Its radius is measured from the blobs. It is drawn as a shaded hemisphere bulging out from the wall, towards the cameras.
 - **Leaves:** the green region around the fruit in each view is laid flat onto the fruit's wall (camera rays meet the wall plane), and kept where at least two views agree. The terminal prints how well each view agrees (IoU), a quick check of the calibration.
+- **Arena frame:** the tapered box of pipes is grown out from the fruit using its measured size (`arena_plotting.arena`): the back face on the fruit's wall, upright, at a fixed offset from the fruit, and the front face `depth` towards the cameras. It is only as accurate as the fruit's placement on the back wall, so check the dashed frame in the reprojection images.
 
-They are fitted once per run and cached in `<run>/3d/fruit/` and `<run>/3d/leaves/`, each with one debug image per camera (`hsv/<camera>.jpg`). The settings are in `arena_plotting` in the config. Use `--no-arena` to skip them.
+The fruit and leaves are fitted once per run and cached in `<run>/3d/fruit/` and `<run>/3d/leaves/`, each with one debug image per camera (`hsv/<camera>.jpg`). The settings are in `arena_plotting` in the config. The frame needs no fitting. Use `--no-arena` to skip all three.
 
 ## Layout
 
 - **`evaluate2d/`**: datasets, detectors, metrics, prediction caching and 2D visualisation.
 - **`tracking3d/`**: camera model and triangulation, run / camera loading, the factor graph (unguided and guided), evaluation, reports and 3D plots.
 - **`gui/`**: the start / end annotator and its epipolar suggestions.
-- **`arena_plotting/`**: static arena objects for the 3D plots. `fruit/` and `leaves/` each have `hsv/` (segmentation), `mesh/` (reconstruction and drawing) and `locate.py` (per-run glue and cache). `objects.py` bundles them for the plots.
+- **`arena_plotting/`**: static arena objects for the 3D plots. `fruit/` and `leaves/` each have `hsv/` (segmentation), `mesh/` (reconstruction and drawing) and `locate.py` (per-run glue and cache); `arena/` has `mesh/` and `locate.py` only, since nothing is segmented. `objects.py` bundles them for the plots, and `geometry.py`, `drawing.py`, `frames.py` and `settings.py` hold the code they share.

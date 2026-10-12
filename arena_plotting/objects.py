@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .arena import ArenaFrame, draw_frame_3d, draw_frame_image, draw_frame_panel, frame_settings, locate_frame
 from .fruit import (Fruit, draw_fruit_3d, draw_fruit_image, draw_fruit_panel, fruit_points, fruit_settings,
                     locate_fruit)
 from .leaves import (Leaves, draw_leaves_3d, draw_leaves_image, draw_leaves_panel, leaves_points,
@@ -17,32 +18,42 @@ from .leaves import (Leaves, draw_leaves_3d, draw_leaves_image, draw_leaves_pane
 class ArenaObjects:
     fruit: Fruit | None = None
     leaves: Leaves | None = None
+    frame: ArenaFrame | None = None
     fruit_style: dict = field(default_factory=dict)
     leaves_style: dict = field(default_factory=dict)
+    frame_style: dict = field(default_factory=dict)
 
     def __bool__(self) -> bool:
-        return self.fruit is not None or self.leaves is not None
+        return any(o is not None for o in (self.fruit, self.leaves, self.frame))
 
     def points(self) -> np.ndarray:
         """(N, 3) points spanning every object, for plot extents."""
         parts = ([fruit_points(self.fruit, self.fruit_style)] if self.fruit else []) + \
-                ([leaves_points(self.leaves)] if self.leaves else [])
+                ([leaves_points(self.leaves)] if self.leaves else []) + \
+                ([self.frame.points] if self.frame else [])
         return np.vstack(parts) if parts else np.zeros((0, 3))
 
+    # Drawn back to front: the frame, the leaves on the wall, the fruit on the leaves.
     def draw_3d(self, ax, labels: bool = True, alpha: float | None = None) -> None:
         """alpha overrides every object's own, e.g. faint objects in a zoomed-out view."""
+        if self.frame:
+            draw_frame_3d(ax, self.frame, self.frame_style, "arena" if labels else None, alpha)
         if self.leaves:
             draw_leaves_3d(ax, self.leaves, self.leaves_style, "leaves" if labels else None, alpha)
         if self.fruit:
             draw_fruit_3d(ax, self.fruit, self.fruit_style, "fruit" if labels else None, alpha)
 
     def draw_panel(self, ax, i: int, j: int) -> None:
+        if self.frame:
+            draw_frame_panel(ax, self.frame, i, j, self.frame_style)
         if self.leaves:
             draw_leaves_panel(ax, self.leaves, i, j, self.leaves_style)
         if self.fruit:
             draw_fruit_panel(ax, self.fruit, i, j, self.fruit_style)
 
     def draw_image(self, ax, camera) -> None:
+        if self.frame:
+            draw_frame_image(ax, self.frame, camera, self.frame_style)
         if self.leaves:
             draw_leaves_image(ax, self.leaves, camera, self.leaves_style)
         if self.fruit:
@@ -50,7 +61,10 @@ class ArenaObjects:
 
 
 def locate_arena(session, config: dict, refit: bool = False) -> ArenaObjects:
-    """Fruit, then the leaves on its wall; each one is skipped if disabled or not found."""
+    """Fruit, then the leaves on its wall and the frame grown out from it; each one is skipped
+    if disabled or not found."""
     fruit = locate_fruit(session, config, refit)
     leaves = locate_leaves(session, config, fruit, refit)
-    return ArenaObjects(fruit, leaves, fruit_settings(config)["mesh"], leaves_settings(config)["mesh"])
+    frame = locate_frame(session, config, fruit)
+    return ArenaObjects(fruit, leaves, frame, fruit_settings(config)["mesh"], leaves_settings(config)["mesh"],
+                        frame_settings(config)["mesh"])

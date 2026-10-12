@@ -21,7 +21,7 @@ DEFAULT_FRUIT = {"enabled": True, "frames": 15}
 
 def fruit_settings(config: dict) -> dict:
     """config["arena_plotting"]["fruit"] with defaults filled in."""
-    return object_settings(config, "fruit", DEFAULT_FRUIT, DEFAULT_HSV, DEFAULT_MESH)
+    return object_settings(config, "fruit", DEFAULT_FRUIT, DEFAULT_MESH, DEFAULT_HSV)
 
 
 def locate_fruit(session, config: dict, refit: bool = False) -> Fruit | None:

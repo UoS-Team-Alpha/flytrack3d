@@ -3,7 +3,7 @@
 The leaves lie flat on the wall the fruit stands on: the plane through the fruit's base
 (fruit.centre) with normal fruit.normal. So no matching across views is needed:
     1. Each view's outline is undistorted and its camera rays are intersected with
-       the wall plane, giving the outline in plane coordinates (world units).
+       the wall plane (arena_plotting/geometry.py), giving it in wall coordinates.
     2. The outlines are filled on a raster of resolution in the plane and kept where
        at least min_views views agree (all views if fewer), so a view that sees only
        part of the star, or a strip of green clutter, does not change the shape.
@@ -23,6 +23,7 @@ import numpy as np
 from tracking3d.triangulate import Camera
 
 from ...fruit import Fruit
+from ...geometry import wall_of
 
 DEFAULT_MESH = {
     "resolution": 0.5,       # world units (mm with t_scale 1000)
@@ -47,39 +48,19 @@ class Leaves:
         return cls(**d)
 
 
-def wall_basis(fruit: Fruit) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """(origin, normal, u, v): the wall plane through the fruit's base, u / v in-plane axes."""
-    n = np.asarray(fruit.normal, float)
-    u = np.cross(n, [1.0, 0.0, 0.0] if abs(n[0]) < 0.9 else [0.0, 1.0, 0.0])
-    u /= np.linalg.norm(u)
-    return np.asarray(fruit.centre, float), n, u, np.cross(n, u)
-
-
-def to_wall(cam: Camera, xy_undistorted: np.ndarray, fruit: Fruit) -> np.ndarray | None:
-    """(N, 2) plane coordinates where the camera rays through the pixels hit the wall."""
-    o, n, u, v = wall_basis(fruit)
-    rays = np.c_[xy_undistorted, np.ones(len(xy_undistorted))] @ np.linalg.inv(cam.K).T @ cam.R   # R^T K^-1 p
-    denom = rays @ n
-    if np.any(np.abs(denom) < 1e-9):
-        return None
-    t = ((o - cam.centre) @ n) / denom
-    if np.any(t <= 0):
-        return None
-    p = cam.centre + t[:, None] * rays - o
-    return np.c_[p @ u, p @ v]
-
-
 def reconstruct_leaves(cams: list[Camera], outlines: list[np.ndarray | None], fruit: Fruit, s: dict) -> Leaves | None:
     """outlines: per camera, the raw-pixel outline (or None). None if fewer than 2 views."""
+    wall = wall_of(fruit, cams)
     res, half = float(s["resolution"]), float(s["max_extent"])
     size = int(round(2 * half / res))
     names, rasters = [], []
     for cam, xy in zip(cams, outlines):
         if xy is None or len(xy) < 3:
             continue
-        uv = to_wall(cam, cam.undistort(xy), fruit)
-        if uv is None:
+        X = wall.hit(cam, cam.undistort(xy))
+        if X is None:
             continue
+        uv = wall.to_plane(X)
         r = np.zeros((size, size), np.uint8)
         cv2.fillPoly(r, [np.round((uv + half) / res).astype(np.int32)], 1)
         names.append(cam.name)
@@ -93,9 +74,7 @@ def reconstruct_leaves(cams: list[Camera], outlines: list[np.ndarray | None], fr
         return None
     c = max(contours, key=cv2.contourArea)
     c = cv2.approxPolyDP(c, 1.0, True)[:, 0].astype(float)   # 1 raster cell = resolution
-    uv = c * res - half
-    o, _, u, v = wall_basis(fruit)
-    outline = o + uv[:, :1] * u + uv[:, 1:] * v
+    outline = wall.to_world(c * res - half)
     region = np.zeros_like(keep)
     cv2.fillPoly(region, [c.astype(np.int32)], 1)
     iou = {n: float(np.logical_and(r, region).sum() / max(np.logical_or(r, region).sum(), 1))

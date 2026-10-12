@@ -24,7 +24,7 @@ DEFAULT_LEAVES = {"enabled": True}
 
 def leaves_settings(config: dict) -> dict:
     """config["arena_plotting"]["leaves"] with defaults filled in."""
-    return object_settings(config, "leaves", DEFAULT_LEAVES, DEFAULT_HSV, DEFAULT_MESH)
+    return object_settings(config, "leaves", DEFAULT_LEAVES, DEFAULT_MESH, DEFAULT_HSV)
 
 
 def locate_leaves(session, config: dict, fruit: Fruit | None, refit: bool = False) -> Leaves | None:

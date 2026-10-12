@@ -109,7 +109,7 @@
   },
 
   "arena_plotting": {
-    "_readme": "Static arena objects drawn into the 3D plots and the reprojection images of main_points3d.py / main_tracks3d.py / main_tracks3d_guided.py (--no-arena to skip). fruit: the red fake fruit, found without annotations. hsv: per view, the median of 'frames' frames spread over the video is thresholded in HSV (OpenCV hue 0-179; red wraps around 0, hence two hue_ranges; min_saturation keeps out the pink walls, min_value the soil), opened (open_px) and closed (close_px), and round blobs (area >= min_area_px, area / enclosing circle >= min_fill) become candidates, largest max_candidates first. mesh: the combination of one candidate per view that triangulates with every reprojection error <= max_reprojection_px is the fruit (most views first). It is drawn as a lit 'shape' ('hemisphere', as in caliscope, or 'cylinder') standing 'depth' off the wall along 'normal'; null = radius measured from the blobs, depth = radius, normal = towards the mean camera centre (world units, as cameras.t_scale). The result is cached in <run>/3d/fruit/fruit.json, with each view's mask and candidates in <run>/3d/fruit/hsv/<camera>.jpg - check these if the fruit looks wrong.",
+    "_readme": "Static arena objects (fruit, leaves, arena frame) drawn into the 3D plots and the reprojection images of main_points3d.py / main_tracks3d.py / main_tracks3d_guided.py (--no-arena to skip). fruit: the red fake fruit, found without annotations. hsv: per view, the median of 'frames' frames spread over the video is thresholded in HSV (OpenCV hue 0-179; red wraps around 0, hence two hue_ranges; min_saturation keeps out the pink walls, min_value the soil), opened (open_px) and closed (close_px), and round blobs (area >= min_area_px, area / enclosing circle >= min_fill) become candidates, largest max_candidates first. mesh: the combination of one candidate per view that triangulates with every reprojection error <= max_reprojection_px is the fruit (most views first). It is drawn as a lit 'shape' ('hemisphere', as in caliscope, or 'cylinder') standing 'depth' off the wall along 'normal'; null = radius measured from the blobs, depth = radius, normal = towards the mean camera centre (world units, as cameras.t_scale). The result is cached in <run>/3d/fruit/fruit.json, with each view's mask and candidates in <run>/3d/fruit/hsv/<camera>.jpg - check these if the fruit looks wrong.",
     "fruit": {
       "enabled": true,
       "frames": 15,
@@ -150,6 +150,19 @@
         "min_views": 2,
         "colour": [0.45, 0.68, 0.45],
         "alpha": 0.45
+      }
+    },
+    "arena": {
+      "_readme": "The arena frame (a tapered box of pipes), grown out from the fruit by its measured size: no segmentation. Its back face lies on the fruit's wall, upright (the cameras' image-up direction), with the fruit fruit_height above its bottom edge and fruit_across right of its centre line; the front face is front_size, 'depth' out of the wall, on the same centre line; the bottom edges are the floor. Sizes are [width, height] between pipe centres, in world units. depth is measured from the fabric back wall the fruit is stuck to, so it is longer than the pipe-to-pipe 150 (170 fits the images of run_20261008-101724_showoff_1). It is only as good as the fruit's placement on the back wall: check the dashed frame in the reprojection images.",
+      "enabled": true,
+      "mesh": {
+        "front_size": [200, 200],
+        "back_size": [157, 157],
+        "depth": 170,
+        "fruit_height": 68,
+        "fruit_across": 0,
+        "colour": [0.3, 0.3, 0.3],
+        "alpha": 0.08
       }
     }
   },
