@@ -24,7 +24,7 @@ Pipeline:
        on the cage) are dropped; the rest are ranked by number of associated detections and the best n_tracks kept.
 
 accel_sigma, link_max_distance and merge_distance are in world units (per frame^2 /
-per frame); see "tracking3d" in config.example.json.
+per frame); see "tracking3d" in config_examples/config.example.json.
 """
 
 from __future__ import annotations

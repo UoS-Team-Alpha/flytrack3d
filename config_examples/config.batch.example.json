@@ -1,30 +1,21 @@
 {
   "_example": true,
-  "_readme": "Template only. Copy to config.json, fill in your paths and delete the '_example' line. The main_*.py scripts refuse to run any config containing '_example'.",
+  "_readme": "Batch template. Copy to config.batch.json (project root), fill in your paths, delete the '_example' line and run: python main_evaluate2d.py --config config.batch.json",
 
   "output_dir": "output",
 
   "dataset": {
-    "name": "my_test_split",
-    "type": "yolo_images",
-    "images": "path/to/dataset/images/test",
-    "labels": "path/to/dataset/labels/test",
-    "data_yaml": "path/to/dataset/data.yaml",
-    "sequences": null
-  },
-
-  "_dataset_video_alternative": {
-    "_readme": "Rename to 'dataset' to evaluate one video. 'labels' can be the folder of .txt files or a CVAT/YOLO export root containing labels/<split>/ (its data.yaml is then used for class names). start_index = label number of the video's first frame (0 if labels start at frame_000000).",
-    "name": "my_video",
-    "type": "video",
-    "video": "path/to/video.mp4",
-    "labels": "path/to/video_labels",
+    "_readme": "Each entry in 'inputs' (a video file, or a folder of frames) is paired with the folder in 'labels' whose name matches it exactly, or contains it (e.g. video 'clip_01.mp4' <-> labels 'ft3_15_clip_01'). Each label folder can hold the .txt files directly or be a CVAT/YOLO export root (labels/<split>/*.txt + data.yaml). The settings below apply to every pair. Each pair gets its own sub-folder in the run folder; run-level results pool all pairs.",
+    "name": "my_batch",
+    "type": "batch",
+    "inputs": "path/to/videos",
+    "labels": "path/to/ground_truth",
+    "items": null,
     "label_template": "frame_{:06d}",
     "start_index": 0,
-    "only_labelled_frames": false
+    "only_labelled_frames": false,
+    "data_yaml": null
   },
-
-  "_dataset_batch_alternative": "To evaluate a folder of videos / frame folders against a folder of label folders, see config.batch.example.json.",
 
   "evaluation": {
     "map_iou_thresholds": {
@@ -86,7 +77,7 @@
   },
 
   "tracking3d": {
-    "_readme": "Pixel values are in undistorted pixels; distances in world units (cameras t x t_scale). conf_threshold null = every saved prediction. min_track_extent drops tracks that barely move (static false positives). n_tracks null = keep every track that passes min_track_frames, else keep the n with the most supporting detections. static_radius_px / static_min_fraction: before tracking, predicted detections at a spot (within static_radius_px) the detector fires on in at least static_min_fraction of a view's frames are removed as background clutter; static_min_fraction null = keep them. Keep the fraction above the share of the video a fly can sit still for.",
+    "_readme": "Pixel values are in undistorted pixels; distances in world units (cameras t x t_scale). conf_threshold null = every saved prediction. min_track_extent drops tracks that barely move (static false positives). n_tracks null = keep every track that passes min_track_frames, else keep the n with the most supporting detections.",
     "conf_threshold": null,
     "max_epipolar_px": 15,
     "max_reprojection_px": 10,
@@ -103,8 +94,6 @@
     "association_iterations": 3,
     "extend_frames": 15,
     "merge_distance": 10,
-    "static_radius_px": 6,
-    "static_min_fraction": 0.3,
     "_evaluation_readme": "main_tracks3d.py / main_tracks3d_guided.py write each run to <run>/3d/<model>/factor_graph/<tracks|guided>_<datetime>/ and, when the run has ground-truth labels, evaluate the tracks. eval_match_distance = how close (world units) a track point must be to a ground-truth 3D point to count as a match (evaluation_3d.txt). evaluate_2d = recompute the 2D metrics with the tracks projected back into each camera, a box inserted wherever a track has no detection (evaluation_2d.txt); backproj_score = the confidence given to those boxes (keep it >= the model confidence threshold, or they only count towards mAP). visualise_backproj_graph = redo the 2D track plots with the inserted boxes drawn in orange (track_plots_backproj/). visualise_backproj_video = one video per camera in reprojection/<camera>.mp4: detector boxes in blue, ground truth in green, every track's reprojected position as a red dot in every frame (also on top of detector boxes, to show how well the track follows them), inserted boxes in red (H.264 through ffmpeg if installed, else larger mp4v files). With either of the two, the inserted boxes are also saved as YOLO labels like the run's predictions: reprojection/labels/<input>/<sequence>/<frame>.txt (class xc yc w h score) plus data.yaml.",
     "eval_match_distance": 20,
     "evaluate_2d": true,
@@ -192,15 +181,6 @@
       "overlap_height_ratio": 0.2,
       "overlap_width_ratio": 0.2,
       "batch_size": 12
-    },
-    {
-      "name": "my_yolo_fullframe",
-      "enabled": false,
-      "type": "ultralytics",
-      "model_path": "path/to/weights/best.pt",
-      "confidence_threshold": 0.25,
-      "device": "cuda:0",
-      "image_size": 640
     }
   ]
 }

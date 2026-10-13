@@ -5,11 +5,9 @@ __pycache__/
 # Editor
 .vscode/
 
-# Local configs (contain private paths) - config.example.json is the tracked template
-config.json
-config.*.json
-!config.example.json
-!config.batch.example.json
+# Local configs (contain private paths) - config_examples/ holds the tracked templates
+/config.json
+/config.*.json
 
 # Evaluation outputs (predictions, metrics, videos; metadata contains local paths)
 output/

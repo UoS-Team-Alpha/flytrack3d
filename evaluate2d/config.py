@@ -23,7 +23,7 @@ def load_config(path: str | Path) -> dict:
     config_path = Path(path).resolve()
     if not config_path.is_file():
         raise SystemExit(f"Config not found: {config_path}\n"
-                         f"Copy config.example.json to config.json and fill in your paths.")
+                         f"Copy config_examples/config.example.json to config.json and fill in your paths.")
     raw = json.loads(config_path.read_text())
     if raw.get("_example"):
         raise SystemExit(f"{config_path.name} is a template and cannot be run.\n"

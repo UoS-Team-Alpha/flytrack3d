@@ -3,7 +3,7 @@
 Triangulated points (see main_points3d.py) seed tracks, which a gtsam factor
 graph then refines against every 2D detection - including those seen by a single
 camera - with a constant-velocity motion prior. See tracking3d/factor_graph.py for details
-and "tracking3d" in config.example.json for the settings.
+and "tracking3d" in config_examples/config.example.json for the settings.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:

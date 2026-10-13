@@ -9,11 +9,11 @@ Tools for evaluating fly detectors (YOLO, optionally with SAHI slicing) and turn
 
 ```bash
 pip install -r requirements.txt
-cp config.example.json config.json              # single dataset
-cp config.batch.example.json config.batch.json  # or: a folder of videos + a folder of label folders
+cp config_examples/config.example.json config.json              # single dataset
+cp config_examples/config.batch.example.json config.batch.json  # or: a folder of videos + a folder of label folders
 ```
 
-Fill in your paths, models and camera calibration, then delete the `"_example"` line. The scripts refuse to run a config that still has it. Every config section has a `_readme` entry that explains its settings.
+Fill in your paths, models and camera calibration, then delete the `"_example"` line. The scripts refuse to run a config that still has it. Every config section has a `_readme` entry that explains its settings. Relative paths in a config are resolved against the folder the config is in.
 
 ## Scripts
 

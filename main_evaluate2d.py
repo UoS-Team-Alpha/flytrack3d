@@ -9,7 +9,7 @@ From the command line, flags override the settings:
 
 Dataset types: a folder of images ("yolo_images"), one video ("video"), or a
 folder of videos / frame folders paired with a folder of label folders
-("batch"). See config.example.json and config.batch.example.json.
+("batch"). See config_examples/config.example.json and config_examples/config.batch.example.json.
 """
 
 import argparse
