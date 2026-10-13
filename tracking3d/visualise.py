@@ -107,7 +107,7 @@ def _draw_arena(ax3d, ortho, rig, arena) -> None:
         arena.draw_panel(ax, i, j)
 
 
-def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str,
+def plot_points_3d(points: np.ndarray, cameras, out_path: Path | None, title: str,
                    gt_tracks: list[np.ndarray] | None = None, close: bool = True,
                    arena=None):
     """points: (N, 5) frame, x, y, z, n_views. Scatter coloured by frame number; optional
@@ -128,13 +128,14 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path, title: str,
     fig.colorbar(sc, ax=[ax3d, *ortho, rig], shrink=0.5, label="frame")
     if gt_tracks or arena:
         ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
-    fig.savefig(out_path, dpi=110)
+    if out_path is not None:   # None: only build the figure (viewing a past result)
+        fig.savefig(out_path, dpi=110)
     if close:
         plt.close(fig)
     return fig
 
 
-def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarray | None = None,
+def plot_tracks_3d(tracks, cameras, out_path: Path | None, title: str, points: np.ndarray | None = None,
                    gt_tracks: list[np.ndarray] | None = None,
                    anchors: list[tuple[int, str, np.ndarray]] | None = None, close: bool = True,
                    arena=None):
@@ -172,7 +173,8 @@ def plot_tracks_3d(tracks, cameras, out_path: Path, title: str, points: np.ndarr
         _draw_anchors(ax3d, ortho, rig, anchors)
     if tracks or arena:
         ax3d.legend(loc="upper left", fontsize=7, framealpha=0.8)
-    fig.savefig(out_path, dpi=110)
+    if out_path is not None:   # None: only build the figure (viewing a past result)
+        fig.savefig(out_path, dpi=110)
     if close:
         plt.close(fig)
     return fig

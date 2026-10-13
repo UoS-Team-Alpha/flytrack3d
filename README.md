@@ -20,7 +20,7 @@ Fill in your paths, models and camera calibration, then delete the `"_example"` 
 
 ## Scripts
 
-The scripts to run are the `main_*.py` files in `pipeline/`, grouped into numbered steps in the order you would normally use them. Each can be run from the IDE (edit its `SETTINGS` block and press Run) or from the command line, e.g. `python pipeline/step4_evaluation/main_evaluate2d.py`, where flags override those settings (`--help` lists them). They work from any working directory and look for their config in the project root. Steps 0 to 2 each have their own config (`video_config.json`, `image_dataset_config.json` and `image_tiling_config.json`, with one section per script); steps 3 to 7 share `config.json`. Each writes to a timestamped `output/run_<datetime>/` folder, or into the run folder it works on.
+The scripts to run are the `main_*.py` files in `pipeline/`, grouped into numbered steps in the order you would normally use them. Each can be run from the IDE (edit its `SETTINGS` block and press Run) or from the command line, e.g. `python pipeline/step4_evaluation/main_evaluate2d.py`, where flags override those settings (`--help` lists them). They work from any working directory and look for their config in the project root. Steps 0 to 2 each have their own config (`video_config.json`, `image_dataset_config.json` and `image_tiling_config.json`, with one section per script); steps 3 to 8 share `config.json`. Each writes to a timestamped `output/run_<datetime>/` folder, or into the run folder it works on.
 
 **Step 0: video editing** (`pipeline/step0_video_editing/`)
 
@@ -55,6 +55,10 @@ The scripts to run are the `main_*.py` files in `pipeline/`, grouped into number
 
 - **`main_tracks3d.py`**: builds 3D tracks automatically. Triangulated points are linked into tracklets, each tracklet seeds a factor-graph track, and every 2D detection is associated with tracks iteratively, including detections seen by one camera only. Detections at fixed pixel positions (background clutter) are removed first. Results go to `<run>/3d/<model>/factor_graph/tracks_<datetime>/`: tracks (`tracks_3d.csv`), settings (`params.json`), 3D and reprojection plots, and, when the run has labels, `evaluation_3d.txt` / `evaluation_2d.txt`.
 - **`main_tracks3d_guided.py`**: 3D tracks for hand-picked flies. An annotator opens each camera's video, where you click where each fly starts and / or ends. Later views can suggest the points from earlier views using the epipolar geometry. Each annotated fly gets exactly one track: the clicks fix its frame range and act as trusted constraints. Annotations are saved and can be reused with `--no-gui`. The annotator keeps the views in sync using each camera's `frame_offset`. Switching views opens the same instant, `g` jumps to the selected fly's point in another view, and if the same START / END is annotated in two views, the panel shows the offset that would line them up. To find an unknown offset, annotate one sharp event, like a take-off, in every view. Outputs and evaluation are the same as for `main_tracks3d.py`, in `factor_graph/guided_<datetime>/`.
+
+**Step 8: visualise** (`pipeline/step8_visualise/`)
+
+- **`main_visualise_past_3d.py`**: opens the interactive 3D plot of a past step 6 / 7 result again, without recomputing it. In the terminal, choose a run, then what to view (its triangulated points, a past unguided run or a past guided run), then which one if there are several. The points / tracks are read from the saved csv; the cameras, ground-truth overlay, arena and the grey points behind the tracks are rebuilt using the settings and frame offsets saved in the result's `params.json`. The calibration is not saved with a result, so those parts follow the current `cameras` config. Nothing is written to the result's folder.
 
 Use `--source gt` on the 3D scripts to run them on the ground-truth labels instead of the predictions.
 

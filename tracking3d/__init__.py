@@ -6,4 +6,5 @@
     factor_graph  gtsam track estimation (reprojection + constant-velocity factors)
     visualise     3D plots and per-camera reprojection overlays
     evaluate      tracks vs ground truth in 3D, and 2D metrics with the tracks back-projected
+    past_results  find and load saved 3D results, to plot them again
 """
