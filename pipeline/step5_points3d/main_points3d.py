@@ -8,31 +8,33 @@ that, see main_tracks3d.py.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python main_points3d.py                     # pick a run from a list
-    python main_points3d.py --run run_20261006-113511_640_960inf_960window
-    python main_points3d.py --source gt         # triangulate the ground-truth labels instead
-    python main_points3d.py --no-show           # only save files
+    python pipeline/step5_points3d/main_points3d.py                     # pick a run from a list
+    python pipeline/step5_points3d/main_points3d.py --run run_20261006-113511_640_960inf_960window
+    python pipeline/step5_points3d/main_points3d.py --source gt         # triangulate the ground-truth labels instead
+    python pipeline/step5_points3d/main_points3d.py --no-show           # only save files
 
 Outputs go to <run>/3d/<model or ground_truth>/points/.
 """
 
 import argparse
 import csv
+import sys
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
 
-from arena_plotting import locate_arena
-from evaluate2d.config import load_config
-from tracking3d.multiview import ground_truth_tracks, open_session
-from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session
-from tracking3d.visualise import plot_points_3d, use_interactive_backend
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-HERE = Path(__file__).resolve().parent
+from arena_plotting import locate_arena  # noqa: E402
+from evaluate2d.config import load_config  # noqa: E402
+from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402
+from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session  # noqa: E402
+from tracking3d.visualise import plot_points_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = HERE / "config.json"   # needs "cameras" (calibration) and optionally "tracking3d"
+CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration) and optionally "tracking3d"
 RUN = None           # run folder name or path; None = choose in the terminal
 MODEL = None         # model in that run; None = the only one, or choose in the terminal
 SOURCE = "pred"      # "pred" = the run's predictions, "gt" = its ground-truth labels

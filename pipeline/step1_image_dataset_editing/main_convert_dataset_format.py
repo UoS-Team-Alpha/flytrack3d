@@ -16,14 +16,19 @@ The input dataset is never changed, and the output folder must not exist yet
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python main_convert_dataset_format.py --direction yolo_to_coco --input datasets/flies --output datasets/flies_coco
-    python main_convert_dataset_format.py --direction coco_to_yolo --input datasets/flies_coco --output datasets/flies_yolo --symlink
+    python pipeline/step1_image_dataset_editing/main_convert_dataset_format.py --direction yolo_to_coco --input datasets/flies --output datasets/flies_coco
+    python pipeline/step1_image_dataset_editing/main_convert_dataset_format.py --direction coco_to_yolo --input datasets/flies_coco --output datasets/flies_yolo --symlink
 """
 
 import argparse
+import sys
+from pathlib import Path
 
-from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo
-from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
+
+from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo  # noqa: E402
+from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco  # noqa: E402
 
 # ============================================================================ SETTINGS
 DIRECTION = "yolo_to_coco"         # "yolo_to_coco" or "coco_to_yolo"

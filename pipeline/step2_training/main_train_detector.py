@@ -9,20 +9,22 @@ evaluate it, give the run name as a model's "model_path" in the config.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings and the config:
-    python main_train_detector.py --gpu 1 --version 11 --p2
-    python main_train_detector.py --version 12 --size s --tag pruned
+    python pipeline/step2_training/main_train_detector.py --gpu 1 --version 11 --p2
+    python pipeline/step2_training/main_train_detector.py --version 12 --size s --tag pruned
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from evaluate2d.config import load_config
-from training.yolo import train_detector
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-HERE = Path(__file__).resolve().parent
+from evaluate2d.config import load_config  # noqa: E402
+from training.yolo import train_detector  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = HERE / "config.json"   # "training" holds the dataset, model and training arguments
+CONFIG_PATH = ROOT / "config.json"   # "training" holds the dataset, model and training arguments
 GPU = None                 # GPU id(s) to train on, e.g. 0 or [0, 1]; None = the config's
 VERSION = None             # YOLO version, e.g. 11 or 12; None = the config's
 SIZE = None                # model size: "n", "s", "m", "l" or "x"; None = the config's

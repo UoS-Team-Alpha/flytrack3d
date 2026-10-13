@@ -2,10 +2,10 @@
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python main_evaluate2d.py --config other.json
-    python main_evaluate2d.py --models yolo_s_12_base_sahi yolo_s_11_p2_sahi
-    python main_evaluate2d.py --force-inference --video --no-track-plot
-    python main_evaluate2d.py --config config.batch.json    # folder of videos + folder of labels
+    python pipeline/step3_evaluation/main_evaluate2d.py --config other.json
+    python pipeline/step3_evaluation/main_evaluate2d.py --models yolo_s_12_base_sahi yolo_s_11_p2_sahi
+    python pipeline/step3_evaluation/main_evaluate2d.py --force-inference --video --no-track-plot
+    python pipeline/step3_evaluation/main_evaluate2d.py --config config.batch.json    # folder of videos + folder of labels
 
 Dataset types: a folder of images ("yolo_images"), one video ("video"), or a
 folder of videos / frame folders paired with a folder of label folders
@@ -13,15 +13,17 @@ folder of videos / frame folders paired with a folder of label folders
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from evaluate2d.config import load_config
-from evaluate2d.evaluate_models import run_evaluation
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-HERE = Path(__file__).resolve().parent
+from evaluate2d.config import load_config  # noqa: E402
+from evaluate2d.evaluate_models import run_evaluation  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = HERE / "config.json"   # dataset, models, metric + visualisation settings
+CONFIG_PATH = ROOT / "config.json"   # dataset, models, metric + visualisation settings
 MODELS = None              # e.g. ["yolo_s_12_base_sahi"]; None = models with "enabled": true in config
 FORCE_INFERENCE = False    # True = ignore cached predictions and re-run the detector
 SAVE_VIDEO = False         # annotated MP4 per sequence (GT green, predictions magenta)

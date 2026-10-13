@@ -12,20 +12,22 @@ Predictions cached by earlier runs (same model, same frames) are reused.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python main_inference2d.py --inputs path/to/new_videos
-    python main_inference2d.py --models yolo_s_12_pruned_640_sahi --force-inference
+    python pipeline/step4_inference/main_inference2d.py --inputs path/to/new_videos
+    python pipeline/step4_inference/main_inference2d.py --models yolo_s_12_pruned_640_sahi --force-inference
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from evaluate2d.config import load_config
-from evaluate2d.evaluate_models import run_inference_only
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-HERE = Path(__file__).resolve().parent
+from evaluate2d.config import load_config  # noqa: E402
+from evaluate2d.evaluate_models import run_inference_only  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = HERE / "config.json"   # models; "dataset" gives the inputs unless INPUTS is set
+CONFIG_PATH = ROOT / "config.json"   # models; "dataset" gives the inputs unless INPUTS is set
 INPUTS = None              # folder of videos / frame folders; None = the config's dataset
 MODELS = None              # e.g. ["yolo_s_12_base_sahi"]; None = models with "enabled": true in config
 FORCE_INFERENCE = False    # True = ignore cached predictions and re-run the detector

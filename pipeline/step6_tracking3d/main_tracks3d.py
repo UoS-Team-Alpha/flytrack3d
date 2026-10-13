@@ -7,10 +7,10 @@ and "tracking3d" in config_examples/config.example.json for the settings.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python main_tracks3d.py                     # pick a run from a list
-    python main_tracks3d.py --n-tracks 3        # keep the 3 best-supported tracks
-    python main_tracks3d.py --source gt         # build tracks from the ground-truth labels
-    python main_tracks3d.py --no-show
+    python pipeline/step6_tracking3d/main_tracks3d.py                     # pick a run from a list
+    python pipeline/step6_tracking3d/main_tracks3d.py --n-tracks 3        # keep the 3 best-supported tracks
+    python pipeline/step6_tracking3d/main_tracks3d.py --source gt         # build tracks from the ground-truth labels
+    python pipeline/step6_tracking3d/main_tracks3d.py --no-show
 
 Outputs go to a new folder per run, <run>/3d/<model or ground_truth>/factor_graph/tracks_<datetime>/:
     tracks_3d.csv            per-frame position, uncertainty and views of every track
@@ -28,23 +28,25 @@ See tracking3d/evaluate.py for how the evaluation works.
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 
-from arena_plotting import locate_arena
-from evaluate2d.config import load_config
-from tracking3d.evaluate import evaluate_tracks
-from tracking3d.factor_graph import build_tracks
-from tracking3d.multiview import ground_truth_tracks, open_session
-from tracking3d.report import write_track_outputs
-from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session
-from tracking3d.visualise import plot_tracks_3d, save_reprojection_plots, use_interactive_backend
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-HERE = Path(__file__).resolve().parent
+from arena_plotting import locate_arena  # noqa: E402
+from evaluate2d.config import load_config  # noqa: E402
+from tracking3d.evaluate import evaluate_tracks  # noqa: E402
+from tracking3d.factor_graph import build_tracks  # noqa: E402
+from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402
+from tracking3d.report import write_track_outputs  # noqa: E402
+from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session  # noqa: E402
+from tracking3d.visualise import plot_tracks_3d, save_reprojection_plots, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = HERE / "config.json"   # needs "cameras" (calibration); "tracking3d" tunes the graph
+CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration); "tracking3d" tunes the graph
 RUN = None           # run folder name or path; None = choose in the terminal
 MODEL = None         # model in that run; None = the only one, or choose in the terminal
 SOURCE = "pred"      # "pred" = the run's predictions, "gt" = its ground-truth labels

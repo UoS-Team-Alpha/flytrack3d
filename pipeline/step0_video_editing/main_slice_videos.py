@@ -7,20 +7,22 @@ folder (<videos_dir>/sliced by default). The videos themselves are not changed.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings and the config:
-    python main_slice_videos.py --start 02:07:00 --end 02:08:00
-    python main_slice_videos.py --videos path/to/videos --output path/to/slices --overwrite
+    python pipeline/step0_video_editing/main_slice_videos.py --start 02:07:00 --end 02:08:00
+    python pipeline/step0_video_editing/main_slice_videos.py --videos path/to/videos --output path/to/slices --overwrite
 """
 
 import argparse
+import sys
 from pathlib import Path
 
-from dataset_tools.video_tools.slice_videos import slice_videos
-from evaluate2d.config import load_config
+ROOT = Path(__file__).resolve().parents[2]   # the repository root
+sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-HERE = Path(__file__).resolve().parent
+from dataset_tools.video_tools.slice_videos import slice_videos  # noqa: E402
+from evaluate2d.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = HERE / "video_config.json"   # "videos_dir" and "slice" hold the folder and the window
+CONFIG_PATH = ROOT / "video_config.json"   # "videos_dir" and "slice" hold the folder and the window
 VIDEOS_DIR = None          # folder of videos to slice; None = the config's
 START = None               # start of the window, e.g. "02:07:00" or seconds; None = the config's
 END = None                 # end of the window, e.g. "02:08:00"; None = the config's
