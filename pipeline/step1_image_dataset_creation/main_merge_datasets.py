@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from common.config import load_config  # noqa: E402
-from dataset_tools.image_tools.merging.merge_datasets import merge_datasets  # noqa: E402
+from dataset_tools.merge import merge_datasets  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "image_dataset_config.json"   # "merge" holds the folders and what to keep

@@ -3,7 +3,7 @@
 The leaves lie flat on the wall the fruit stands on: the plane through the fruit's base
 (fruit.centre) with normal fruit.normal. So no matching across views is needed:
     1. Each view's outline is undistorted and its camera rays are intersected with
-       the wall plane (arena_plotting/geometry.py), giving it in wall coordinates.
+       the wall plane (scene3d/geometry.py), giving it in wall coordinates.
     2. The outlines are filled on a raster of resolution in the plane and kept where
        at least min_views views agree (all views if fewer), so a view that sees only
        part of the star, or a strip of green clutter, does not change the shape.

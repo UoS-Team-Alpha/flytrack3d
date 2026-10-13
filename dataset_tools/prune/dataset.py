@@ -3,7 +3,7 @@ image that goes with it.
 
 The dataset is a YOLO dataset laid out as images/<split>/ and labels/<split>/ (the pruned copy
 is built from those two folders). A frame's video prefix is found as in the dataset analysis
-(dataset_tools.image_tools.analysis.dataset_stats.video_prefix).
+(dataset_tools.stats.video_prefix).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from common.yolo_format import IMAGE_SUFFIXES
-from dataset_tools.image_tools.analysis.dataset_stats import video_prefix
+from dataset_tools.stats import video_prefix
 
 ALL_PREFIXES = "ALL"
 

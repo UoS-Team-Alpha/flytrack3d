@@ -5,7 +5,7 @@
    of interest starts and / or ends - in any views, any mix. "continue" moves to the
    next video, "finish" on the last one runs the tracking. In a later video, "suggest
    starts" / "suggest ends" proposes the points from the earlier views (epipolar
-   geometry, see gui/suggest.py); check them, delete or re-place any wrong ones.
+   geometry, see tracking3d/annotator/suggest.py); check them, delete or re-place any wrong ones.
    Annotations are saved to <run>/3d/annotations.json and loaded again next time, so
    they can be refined or reused (--no-gui).
 3. Each annotated object gets exactly one factor-graph track: the annotations fix its
@@ -32,9 +32,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-from arena_plotting import locate_arena  # noqa: E402
+from scene3d import locate_arena  # noqa: E402
 from common.config import load_config  # noqa: E402
-from gui import run_annotation_gui, view_input_from_source  # noqa: E402
+from tracking3d.annotator import run_annotation_gui, view_input_from_source  # noqa: E402
 from tracking3d.evaluate import evaluate_tracks  # noqa: E402
 from tracking3d.guided import anchor_residuals, build_guided_tracks  # noqa: E402
 from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402

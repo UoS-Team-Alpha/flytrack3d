@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from common.config import load_config  # noqa: E402
-from training.yolo import train_detector  # noqa: E402
+from detection.training import train_detector  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "config.json"   # "training" holds the dataset, model and training arguments

@@ -1,5 +1,5 @@
 """2D detector metrics as text: the per-model report, the side-by-side comparison and the
-per-input table of a batch run (results as computed by evaluate2d.metrics)."""
+per-input table of a batch run (results as computed by detection.metrics)."""
 
 from __future__ import annotations
 

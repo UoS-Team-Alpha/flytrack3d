@@ -35,7 +35,7 @@ sys.path.insert(0, str(ROOT))                # so the project packages import wh
 
 from common.config import load_config  # noqa: E402
 from common.datasets import read_class_names  # noqa: E402
-from dataset_tools.image_tools.analysis.dataset_stats import analyse_dataset, dataset_summary  # noqa: E402
+from dataset_tools.stats import analyse_dataset, dataset_summary  # noqa: E402
 from visualise.boxes.yolo_dataset import show_dataset_samples  # noqa: E402
 from visualise.charts.dataset import show_dataset_charts  # noqa: E402
 from visualise.common import safe_name  # noqa: E402

@@ -1,5 +1,5 @@
 """Place the arena frame for a session, grown out from its fruit (no segmentation, so no
-cache: building it is instant). Needs the fruit (arena_plotting/fruit)."""
+cache: building it is instant). Needs the fruit (scene3d/fruit)."""
 
 from __future__ import annotations
 

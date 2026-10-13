@@ -39,7 +39,7 @@ from .triangulate import MatchSettings, triangulate_session
 
 @dataclass
 class ExternalSession:
-    """The part of a Session the arena objects need (arena_plotting.locate_arena): the views, and
+    """The part of a Session the arena objects need (scene3d.locate_arena): the views, and
     a folder to cache the fits in (run.path / "3d")."""
     run: SimpleNamespace   # path, name
     views: list[View]

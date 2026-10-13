@@ -10,8 +10,8 @@ section of the image dataset config. The input dataset is never changed, and
 the output folder must not exist yet (or be empty). In Python, the two
 conversions are:
 
-    from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco
-    from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo
+    from dataset_tools.convert_yolo_to_coco import convert_yolo_to_coco
+    from dataset_tools.convert_coco_to_yolo import convert_coco_to_yolo
 
     coco_dir = convert_yolo_to_coco("datasets/flies", "datasets/flies_coco", splits=("train", "val"))
     data_yaml = convert_coco_to_yolo("datasets/flies_coco", "datasets/flies_yolo")
@@ -29,8 +29,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo  # noqa: E402
-from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco  # noqa: E402
+from dataset_tools.convert_coco_to_yolo import convert_coco_to_yolo  # noqa: E402
+from dataset_tools.convert_yolo_to_coco import convert_yolo_to_coco  # noqa: E402
 from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS

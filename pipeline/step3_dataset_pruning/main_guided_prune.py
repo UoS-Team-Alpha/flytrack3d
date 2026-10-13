@@ -41,9 +41,9 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from common.config import load_config  # noqa: E402
-from prune.guided import guided_prune  # noqa: E402
-from prune.paths import set_output_dir  # noqa: E402
-from prune.review import review_prune_manifest  # noqa: E402
+from dataset_tools.prune.guided import guided_prune  # noqa: E402
+from dataset_tools.prune.paths import set_output_dir  # noqa: E402
+from dataset_tools.prune.review import review_prune_manifest  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "dataset_pruning_config.json"   # "guided_prune" holds the dataset and the pruning settings

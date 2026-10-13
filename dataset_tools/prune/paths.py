@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-_output_dir = Path(__file__).resolve().parents[1] / "output" / "pruned_datasets"
+_output_dir = Path(__file__).resolve().parents[2] / "output" / "pruned_datasets"
 
 
 def set_output_dir(path: str | Path) -> None:

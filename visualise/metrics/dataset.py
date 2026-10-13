@@ -1,12 +1,12 @@
 """Dataset statistics as text: per split, the videos it holds with their image and instance
 counts, and the sizes of its boxes (statistics as computed by
-dataset_tools.image_tools.analysis.dataset_stats)."""
+dataset_tools.stats)."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from dataset_tools.image_tools.analysis.dataset_stats import (SplitStats, percentiles, shared_videos,
+from dataset_tools.stats import (SplitStats, percentiles, shared_videos,
                                                               size_distribution)
 
 WIDTH = 100

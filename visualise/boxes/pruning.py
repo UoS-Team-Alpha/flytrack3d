@@ -1,5 +1,5 @@
 """Figures for checking what dataset pruning finds and drops (the frames are chosen by
-prune.review): sample frames of a bbox size rank, and dropped frames next to the kept frame
+dataset_tools.prune.review): sample frames of a bbox size rank, and dropped frames next to the kept frame
 each one matched. Close a window to carry on in the terminal.
 """
 

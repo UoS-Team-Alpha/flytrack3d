@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-from dataset_tools.image_tools.cvat.reconstruct_dataset import reconstruct_cvat_dataset  # noqa: E402
+from dataset_tools.cvat import reconstruct_cvat_dataset  # noqa: E402
 from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS

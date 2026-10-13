@@ -66,7 +66,7 @@ def _pick_frame(anchors: list[tuple[int, dict]], kind: str) -> list[tuple[int, d
 
 def suggest(views: list, target: int, annotations: list[dict], kind: str,
             gate_px: float) -> tuple[list[dict], list[str]]:
-    """Suggested `kind` annotations for views[target]. views: gui ViewInputs with .camera.
+    """Suggested `kind` annotations for views[target]. views: annotator ViewInputs with .camera.
     Objects that already have a hand-placed `kind` point in the target view are skipped.
     Returns (new annotation dicts, one note per object)."""
     tv = views[target]

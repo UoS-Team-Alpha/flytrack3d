@@ -1,5 +1,5 @@
 """Charts of what a YOLO dataset holds (statistics as computed by
-dataset_tools.image_tools.analysis.dataset_stats).
+dataset_tools.stats).
 
     contents  pie charts: the images and instances of each split, and of each video within a split
     boxes     per split: where the boxes sit in the frame, their width against their height, and
@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
-from dataset_tools.image_tools.analysis.dataset_stats import SplitStats
+from dataset_tools.stats import SplitStats
 
 # Categorical colours, used in this fixed order; grey is kept for "Other" / background.
 SERIES = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948")

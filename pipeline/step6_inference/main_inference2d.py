@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from common.config import load_config  # noqa: E402
-from evaluate2d.evaluate_models import run_inference_only  # noqa: E402
+from detection.evaluate_models import run_inference_only  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "config.json"   # models; "dataset" gives the inputs unless INPUTS is set

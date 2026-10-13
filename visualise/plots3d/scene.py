@@ -92,7 +92,7 @@ def _draw_gt_tracks(ax3d, ortho, rig, gt_tracks) -> None:
 
 
 def _draw_arena(ax3d, ortho, rig, arena) -> None:
-    """Static arena objects (arena_plotting.ArenaObjects: fruit, leaves), under the tracks."""
+    """Static arena objects (scene3d.ArenaObjects: fruit, leaves), under the tracks."""
     arena.draw_3d(ax3d)
     arena.draw_3d(rig, labels=False, alpha=RIG_ARENA_ALPHA)
     for ax, (_, i, j) in zip(ortho, PANELS):
@@ -103,7 +103,7 @@ def plot_points_3d(points: np.ndarray, cameras, out_path: Path | None, title: st
                    gt_tracks: list[np.ndarray] | None = None, close: bool = True,
                    arena=None):
     """points: (N, 5) frame, x, y, z, n_views. Scatter coloured by frame number; optional
-    ground-truth tracks in green and arena objects (arena_plotting.ArenaObjects)."""
+    ground-truth tracks in green and arena objects (scene3d.ArenaObjects)."""
     gt_tracks = gt_tracks or []
     data = np.vstack([points[:, 1:4]] + [t[:, 1:4] for t in gt_tracks]
                      + ([arena.points()] if arena else []))
@@ -134,7 +134,7 @@ def plot_tracks_3d(tracks, cameras, out_path: Path | None, title: str, points: n
     """Factor-graph tracks as lines (entry = triangle, exit = square); raw triangulated points
     grey; optional ground-truth tracks in green; optional annotated points
     (track id, "start" / "end", xyz) as large plus / cross markers; optional arena objects
-    (arena_plotting.ArenaObjects: fruit, leaves), included in the plot extent."""
+    (scene3d.ArenaObjects: fruit, leaves), included in the plot extent."""
     gt_tracks = gt_tracks or []
     data = np.vstack([t.xyz for t in tracks] + [t[:, 1:4] for t in gt_tracks])
     extent = np.vstack([data, arena.points()]) if arena else data

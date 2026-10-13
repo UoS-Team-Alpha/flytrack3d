@@ -1,5 +1,5 @@
 """Locate the leaves for a session: the green outline around the fruit in every view, laid
-onto the wall the fruit stands on. Needs the fruit (arena_plotting/fruit) for the wall plane.
+onto the wall the fruit stands on. Needs the fruit (scene3d/fruit) for the wall plane.
 
 The result is cached in <run>/3d/leaves/leaves.json, next to one debug image per camera
 (hsv/<camera>.jpg: green mask, outline used, fruit centre). It is recomputed when the

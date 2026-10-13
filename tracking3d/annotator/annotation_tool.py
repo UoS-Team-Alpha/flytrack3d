@@ -19,7 +19,7 @@ END point per view; any of them may be left out (e.g. a start in one view only).
                h                  show / hide detections
                l                  show / hide the selected object's epipolar lines
                S / E              suggest STARTs / ENDs in this view from the other views
-                                  (epipolar geometry, see gui/suggest.py); marked "?",
+                                  (epipolar geometry, see tracking3d/annotator/suggest.py); marked "?",
                                   delete or replace them like any annotation
                g                  go to the instant of the selected object's START / END
                                   (current mode) in another view

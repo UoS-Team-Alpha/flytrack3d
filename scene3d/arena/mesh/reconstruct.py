@@ -1,7 +1,7 @@
 """The arena frame, grown out from the fruit: no segmentation, only its measured size.
 
 The arena is a tapered box: a front face and a smaller back face, joined by angled
-sides, the back face on the wall the fruit stands on (arena_plotting/geometry.py).
+sides, the back face on the wall the fruit stands on (scene3d/geometry.py).
     1. The back face lies on the wall, upright (the cameras' "up"), placed from the fruit:
        fruit_height above its bottom edge and fruit_across right of its centre line.
     2. The front face is front_size, depth out of the wall towards the cameras, on the

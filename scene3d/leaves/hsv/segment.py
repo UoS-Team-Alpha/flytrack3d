@@ -1,6 +1,6 @@
 """Find the green leaves (the tape star around the fruit) in one camera view by HSV thresholding.
 
-    1. The view's median frame (arena_plotting/frames.py).
+    1. The view's median frame (scene3d/frames.py).
     2. Green mask in HSV (OpenCV hue 0-179), opened to drop specks and closed to join
        the tape strips across their creases and across the fruit.
     3. The leaves are the outer contour that contains the fruit's reprojected centre

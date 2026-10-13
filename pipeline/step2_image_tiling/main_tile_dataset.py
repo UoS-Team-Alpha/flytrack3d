@@ -3,7 +3,7 @@
 Each image gives tiles cropped around its objects (every object ends up in a
 tile; boxes cut to a sliver by a tile's edge are dropped) plus, for a fraction
 of the images, an empty background tile. The empty tiles are spread evenly over
-a 3x3 grid of the frame. See dataset_tools/image_tools/tiling/tile_dataset.py.
+a 3x3 grid of the frame. See dataset_tools/tile.py.
 
 The dataset, the output folder and the tiling settings come from the "tile"
 section of the image tiling config. The output is a YOLO dataset
@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-from dataset_tools.image_tools.tiling.tile_dataset import TileSettings, tile_dataset  # noqa: E402
+from dataset_tools.tile import TileSettings, tile_dataset  # noqa: E402
 from common.config import load_config  # noqa: E402
 from visualise.boxes.yolo_dataset import show_dataset_samples  # noqa: E402
 

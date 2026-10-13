@@ -1,5 +1,8 @@
-"""2D detector evaluation (main_evaluate2d.py).
+"""The 2D detector: training and evaluation (main_train_detector.py, main_evaluate2d.py,
+main_inference2d.py).
 
+    training         build the YOLO model (version / size / P2 head / pretrained weights) and
+                     run Ultralytics training
     detectors        SAHI / Ultralytics detector wrappers
     metrics          COCO-style mAP and precision / recall
     predictions      saved predictions (YOLO labels per frame) and their cache key

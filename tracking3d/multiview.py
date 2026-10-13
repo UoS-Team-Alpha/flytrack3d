@@ -24,7 +24,7 @@ import numpy as np
 
 from common.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, resolve_label_dir
 from common.yolo_format import read_yolo_labels
-from evaluate2d.predictions import PRED_DIR
+from detection.predictions import PRED_DIR
 from common.linking import link_tracks
 
 from .camera import Camera, camera_from_config

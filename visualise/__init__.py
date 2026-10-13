@@ -1,5 +1,5 @@
 """Everything that is drawn or laid out for people to look at: graphs, box overlays and
-metric tables. The packages that compute the results (evaluate2d, tracking3d, dataset_tools)
+metric tables. The packages that compute the results (detection, tracking3d, dataset_tools)
 are called first, and what they return is passed in here.
 
     plots2d/   2D graphs, the size of a camera frame
@@ -23,5 +23,5 @@ are called first, and what they return is passed in here.
     common     colours and small helpers the above share
 
 The arena objects drawn into the 3D plots (fruit, leaves, frame) are fitted and drawn by
-arena_plotting.
+scene3d.
 """

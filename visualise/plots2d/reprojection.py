@@ -19,7 +19,7 @@ def save_reprojection_plots(tracks, views, out_dir: Path, dpi: int = 100,
     """Per camera: first frame, every raw detection (grey) and the 3D tracks projected back
     through the full camera model (with distortion). Tracks that sit on the detections
     confirm the calibration; a constant offset in one view points at its extrinsics.
-    Arena objects (arena_plotting.ArenaObjects), if given, are outlined dashed: they should ring
+    Arena objects (scene3d.ArenaObjects), if given, are outlined dashed: they should ring
     the fruit and the leaves in the image."""
     out_dir.mkdir(parents=True, exist_ok=True)
     saved = []

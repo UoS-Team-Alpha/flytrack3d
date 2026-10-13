@@ -1,7 +1,7 @@
 """Find the red fake fruit in one camera view by HSV thresholding.
 
 Pipeline per view:
-    1. The view's median frame (arena_plotting/frames.py): flies vanish, the fruit stays.
+    1. The view's median frame (scene3d/frames.py): flies vanish, the fruit stays.
     2. Red mask in HSV. Red wraps around hue 0, so it is a union of hue ranges
        (OpenCV hue is 0-179). The saturation floor keeps out the pale pink walls,
        the value floor the dark red-brown soil.

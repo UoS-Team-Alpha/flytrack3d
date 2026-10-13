@@ -1,6 +1,6 @@
 """Frames and instances per split and video prefix, saved as a CSV that the prompts and the
 purge status table read. The numbers are the dataset analysis's
-(dataset_tools.image_tools.analysis.dataset_stats); the CSV saves counting them again on every
+(dataset_tools.stats); the CSV saves counting them again on every
 run, so refresh it when images are added to or removed from the dataset.
 """
 
@@ -10,7 +10,7 @@ import csv
 import os
 
 from common.datasets import read_class_names
-from dataset_tools.image_tools.analysis.dataset_stats import analyse_dataset
+from dataset_tools.stats import analyse_dataset
 
 from .dataset import ALL_PREFIXES
 from .paths import get_metrics_csv_path

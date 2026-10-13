@@ -33,11 +33,11 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from common.config import load_config  # noqa: E402
-from prune.dataset import check_layout  # noqa: E402
-from prune.metrics import write_video_metrics  # noqa: E402
-from prune.paths import get_metrics_csv_path, set_output_dir  # noqa: E402
-from prune.redundancy import analyse_bbox_duplicates  # noqa: E402
-from prune.review import view_rank_grids  # noqa: E402
+from dataset_tools.prune.dataset import check_layout  # noqa: E402
+from dataset_tools.prune.metrics import write_video_metrics  # noqa: E402
+from dataset_tools.prune.paths import get_metrics_csv_path, set_output_dir  # noqa: E402
+from dataset_tools.prune.redundancy import analyse_bbox_duplicates  # noqa: E402
+from dataset_tools.prune.review import view_rank_grids  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "dataset_pruning_config.json"   # "analyse_redundancy" holds the dataset and the settings
