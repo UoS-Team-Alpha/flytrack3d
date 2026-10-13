@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 PATH_KEYS = {"images", "labels", "video", "inputs", "videos_dir", "annotations_zip", "input_dir", "data_yaml",
-             "model_path", "config_path", "output_dir", "p2_model_yaml", "weights_dir"}
+             "model_path", "config_path", "output_dir", "p2_model_yaml", "weights_dir", "csv", "fg_labels", "videos", "save"}
 
 
 def resolve_paths(obj, base: Path):

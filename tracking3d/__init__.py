@@ -7,6 +7,7 @@
     factor_graph  gtsam track estimation (reprojection + constant-velocity factors)
     evaluate      tracks vs ground truth in 3D, and 2D metrics with the tracks back-projected
     past_results  find and load saved 3D results, to plot them again
+    external      a csv of 3D points / tracks or folders of YOLO labels from outside a run
 
 Its 3D plots, reprojection overlays, back-projection videos and text reports are in visualise/.
 """
