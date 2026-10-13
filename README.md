@@ -19,6 +19,7 @@ Fill in your paths, models and camera calibration, then delete the `"_example"` 
 
 Every `main_*.py` script can be run from the IDE (edit its `SETTINGS` block and press Run) or from the command line, where flags override those settings (`--help` lists them). Each writes to a timestamped `output/run_<datetime>/` folder, or into the run folder it works on.
 
+- **`main_train_detector.py`**: trains a YOLO detector with Ultralytics from the `training` section of the config: the dataset yaml, GPU, W&B project / group, YOLO version and size, the optional P2 head (an extra small-object detection layer, from `p2_model_yaml`) and the training arguments. With `load_pretrained`, the standard model's pretrained weights are loaded, also into the P2 architecture (backbone and P3-P5 heads; the P2 layers start random). Runs go to `output/training/<wandb_project>/<run name>/`, named like the W&B run, e.g. `yolo_s_12_base` (`_2`, `_3`, ... if the name is taken). To evaluate a trained model, set a model's `model_path` in `models` to the run name (e.g. `"model_path": "yolo_s_12_base"`) instead of a path; it resolves to that run's `weights/best.pt`.
 - **`main_evaluate2d.py`**: runs the enabled detectors on the dataset in the config and scores them against the ground-truth labels: mAP@0.2 / 0.5 / 0.5:0.95, P/R/F1, a side-by-side model comparison, plus optional track plots and annotated videos. Predictions are cached and reused while the model and frames are unchanged. With a batch config, each camera video becomes one input of the run, and that run is what the 3D scripts work on.
 - **`main_inference2d.py`**: runs the detectors without ground truth, on new recordings (`--inputs path/to/videos`). It writes a run folder with the same layout as an evaluation run, so the 3D scripts can use it directly.
 - **`main_points3d.py`**: matches each frame's detections across the cameras (epipolar distance, Hungarian method) and triangulates them into 3D points, with no tracking. Useful for checking the calibration and the cross-camera matching.
@@ -37,6 +38,7 @@ The fruit and leaves are fitted once per run and cached in `<run>/3d/fruit/` and
 
 ## Layout
 
+- **`training/`**: building the YOLO model (version, size, P2 head, pretrained weights) and running Ultralytics training.
 - **`evaluate2d/`**: datasets, detectors, metrics, prediction caching and 2D visualisation.
 - **`tracking3d/`**: camera model and triangulation, run / camera loading, the factor graph (unguided and guided), evaluation, reports and 3D plots.
 - **`gui/`**: the start / end annotator and its epipolar suggestions.

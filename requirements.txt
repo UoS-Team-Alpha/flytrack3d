@@ -11,11 +11,12 @@ pillow>=12.0
 PyYAML>=6.0
 tqdm>=4.65
 
-# Detectors (main_evaluate2d.py, main_inference2d.py)
+# Detectors (main_train_detector.py, main_evaluate2d.py, main_inference2d.py)
 torch>=2.13
 torchvision>=0.28
 ultralytics>=8.4
 sahi>=0.12.6
+# wandb               # optional: W&B logging for training ('yolo settings wandb=True')
 
 # 3D tracking (main_tracks3d.py, main_tracks3d_guided.py)
 gtsam>=4.3

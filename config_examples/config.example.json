@@ -178,6 +178,32 @@
     }
   },
 
+  "training": {
+    "_readme": "Settings for main_train_detector.py. data_yaml = the Ultralytics dataset yaml. p2_model_yaml = the P2-head architecture yaml, used when p2 is true; its file name must match version and size (e.g. yolo11s-p2.yaml). gpu = GPU id, or a list of ids for multi-GPU. wandb_project / wandb_group = where the run logs in Weights & Biases (enable with 'yolo settings wandb=True'); the run is named yolo_<size>_<version>_<base|p2>[_scratch][_<tag>]. version / size pick the model, e.g. 12 + 's' = yolo12s. load_pretrained loads the standard model's pretrained weights (yolo<version><size>.pt), also into the P2 architecture; false trains from scratch. weights_dir = folder holding those pretrained weights (missing ones are downloaded there); null = <output_dir>/training/pretrained. train_args are passed straight to Ultralytics model.train() (any of its arguments: epochs, batch, imgsz, workers, patience, mosaic, scale, ...). The run is written to <output_dir>/training/<wandb_project>/<run name>/ (_2, _3, ... if that run name exists). To evaluate it, put the run name in a model's model_path instead of a path to its weights.",
+    "data_yaml": "path/to/dataset/data.yaml",
+    "p2_model_yaml": "path/to/model_configs/yolo11s-p2.yaml",
+    "gpu": 0,
+    "wandb_project": "fly-detect-compare-yolos",
+    "wandb_group": "yoloS_comparison",
+    "version": 12,
+    "size": "s",
+    "p2": false,
+    "load_pretrained": true,
+    "weights_dir": null,
+    "tag": "",
+    "train_args": {
+      "epochs": 50,
+      "batch": 32,
+      "imgsz": 640,
+      "workers": 8,
+      "patience": 50,
+      "mosaic": 0.25,
+      "close_mosaic": 15,
+      "scale": 0.5,
+      "verbose": true
+    }
+  },
+
   "models": [
     {
       "name": "my_yolo_sahi",
