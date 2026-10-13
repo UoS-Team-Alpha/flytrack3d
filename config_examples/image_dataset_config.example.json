@@ -11,6 +11,16 @@
     "keep_empty": false
   },
 
+  "merge": {
+    "_readme": "Settings for main_merge_datasets.py, which merges a folder of YOLO datasets into one and never adds the same image twice. input_dir = the folder holding the datasets to merge, one per sub-folder (each with images/<split> + labels/<split>); they are never changed. output_dir = the merged dataset (images/<split>/<dataset>_<image>, labels/<split>, <split>.txt, data.yaml); it may already hold a dataset, which is then added to, and nothing in it is overwritten. An image is skipped when a byte-identical image is already in the output, in any split. splits = the splits to merge; null = every one found. keep_classes = the class ids whose boxes are kept, renumbered from 0 in this order; null = every class as it is. class_names = the names of the merged dataset's classes, e.g. [\"fly\"]; null = read them from the data.yaml of the datasets. keep_empty = also add images without a (kept) box, as background images.",
+    "input_dir": "path/to/folder_of_datasets",
+    "output_dir": "path/to/merged_dataset",
+    "splits": null,
+    "keep_classes": [0],
+    "class_names": null,
+    "keep_empty": true
+  },
+
   "convert_format": {
     "_readme": "Settings for main_convert_dataset_format.py. direction = 'yolo_to_coco' (needs fiftyone) or 'coco_to_yolo' (needs ultralytics). input_dir = the dataset to convert: for YOLO the folder holding data.yaml, for COCO the folder holding data/ and annotations/instances_<split>.json. output_dir = where the converted dataset is written; it must not exist yet, or be empty. splits = the splits to convert; null = every split found (coco_to_yolo only). copy_images = false symlinks the images instead of copying them.",
     "direction": "yolo_to_coco",
