@@ -9,10 +9,10 @@ Tools for evaluating fly detectors (YOLO, optionally with SAHI slicing) and turn
 
 ```bash
 pip install -r requirements.txt
-for f in configs/*.example.json configs/shared/*.example.json; do cp -n "$f" "${f/.example/}"; done
+python setup_configs.py
 ```
 
-That copies every template in `configs/` to the config it stands for (`configs/training.example.json` to `configs/training.json`, and so on). Fill in your paths, models and camera calibration, then delete the `"_example"` line of each config you use. The scripts refuse to run a config that still has it. The real configs are gitignored; only the `*.example.json` templates are tracked. Every config section has a `_readme` entry that explains its settings. Relative paths in a config are resolved against the folder that config is in, and results go to `output/` in the project root unless a config sets `output_dir`.
+`setup_configs.py` copies every template in `configs/` to the config it stands for (`configs/training.example.json` to `configs/training.json`, and so on), never touching a config that already exists, and lists the ones to fill in. Fill in your paths, models and camera calibration, then delete the `"_example"` line of each of those. The scripts refuse to run a config that still has it. Start with `configs/shared/paths.json`, which most of the others refer to. The real configs are gitignored; only the `*.example.json` templates are tracked. Every config section has a `_readme` entry that explains its settings. Relative paths in a config are resolved against the folder that config is in, and results go to `output/` in the project root unless a config sets `output_dir`.
 
 ## Configs
 
