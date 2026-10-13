@@ -12,6 +12,8 @@ are called first, and what they return is passed in here.
         dataset       what a YOLO dataset holds (pies per split and video), box positions and sizes
     boxes/     bounding boxes drawn on images and videos
         yolo_dataset  draw YOLO boxes on an image; show random samples of a YOLO dataset
+        pruning       dataset pruning checks: frames of a bbox size rank, dropped frames next
+                      to the kept frame they matched
         video         annotated videos: ground truth / detector boxes, and the factor graph's
                       back-projected boxes
     metrics/   metrics as text tables, for the terminal and the .txt reports

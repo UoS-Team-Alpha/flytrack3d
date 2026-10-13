@@ -18,6 +18,9 @@ ultralytics>=8.4
 sahi>=0.12.6
 # wandb               # optional: W&B logging for training ('yolo settings wandb=True')
 
+# Dataset pruning (main_analyse_redundancy.py, main_guided_prune.py)
+scikit-image>=0.26  # SSIM between box crops
+
 # Dataset conversion (main_convert_dataset_format.py)
 # fiftyone>=1.21     # optional: only for yolo_to_coco (coco_to_yolo uses ultralytics)
 

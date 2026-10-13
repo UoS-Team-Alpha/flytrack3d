@@ -1,0 +1,50 @@
+{
+  "_example": true,
+  "_readme": "Dataset pruning template (pipeline step 3). Copy to dataset_pruning_config.json (project root), fill in the dataset and delete the '_example' line. Each section belongs to one script. Relative paths are resolved against the folder this file is in.",
+
+  "analyse_redundancy": {
+    "_readme": "Settings for main_analyse_redundancy.py, which ranks the bbox sizes of a split / video prefix and finds its redundant boxes; it never changes the dataset. input_dir = the YOLO dataset, as its folder or its data.yaml (images/<split> + labels/<split>; .jpg and .png images; a frame's video prefix is the part of its file name before '_frame_', else its sub-folder of the split). output_dir = where the results are kept; null = output/pruned_datasets/. refresh_metrics = count the dataset again instead of reading the saved <dataset>_metrics.csv (do this after images are added or removed). top_n = number of bbox size ranks to report. decimals = null groups only identical sizes; an integer rounds the normalised sizes first (3 = within 0.64 px at 640 px). ssim = also compare the box crops of the top ranks: adds the Distinct / Mean SSIM / Min SSIM columns and the per-box kept / redundant decisions. ssim_threshold = crops at or above this SSIM count as the same appearance. ssim_ranks = how many of the top ranks get SSIM; null = all top_n. save = write the results to bbox_sizes/ (needed for the grids). use_cache = reuse saved results while the label files and these settings are unchanged. grids = afterwards, pick saved results and a rank to see num_samples of its frames, sampled evenly, with the boxes drawn (needs a display); grid false = one window per frame.",
+    "input_dir": "path/to/dataset",
+    "output_dir": null,
+    "refresh_metrics": false,
+    "top_n": 10,
+    "decimals": null,
+    "ssim": true,
+    "ssim_threshold": 0.9,
+    "ssim_ranks": 3,
+    "save": true,
+    "use_cache": true,
+    "grids": {
+      "enabled": true,
+      "num_samples": 9,
+      "grid": true
+    }
+  },
+
+  "guided_prune": {
+    "_readme": "Settings for main_guided_prune.py, which walks a split one video prefix at a time and builds a pruned copy of the dataset; the original is only ever read. input_dir = the YOLO dataset, as its folder or its data.yaml (images/<split> + labels/<split>). output_dir = where the pruned datasets and the working files are written; null = output/pruned_datasets/. It should be on the same drive as the dataset, so the images are hard-linked instead of copied. splits = the splits offered for pruning. prefixes = null walks every video prefix of the split; a list (full video prefixes, or a part that matches exactly one) walks only those, as a stricter second pass whose runs replace those videos' current pruning. top_n, decimals, ssim_threshold, ssim_ranks = the analysis settings, as in analyse_redundancy. distinct_cutoff = only ranks with distinct / count below this are pruned. keep_fraction = share of each pruned rank's redundant frames kept anyway, evenly spaced; min_keep_per_rank = the least kept per rank (lower it when SSIM'ing many ranks). max_drop_fraction = at most this share of a video's frames can be dropped. grids = show num_samples frames of each SSIM'd rank before asking (needs a display); ranks = 'all' SSIM'd ranks or only those being 'pruned'; max_grids = at most this many per video, null = no limit; grid false = one window per frame. review = afterwards, pick a run to see num_samples of its dropped frames next to the kept frame each one matched.",
+    "input_dir": "path/to/dataset",
+    "output_dir": null,
+    "splits": ["train"],
+    "prefixes": null,
+    "top_n": 10,
+    "decimals": null,
+    "ssim_threshold": 0.9,
+    "ssim_ranks": 3,
+    "distinct_cutoff": 0.1,
+    "keep_fraction": 0.05,
+    "min_keep_per_rank": 10,
+    "max_drop_fraction": 0.9,
+    "grids": {
+      "enabled": true,
+      "ranks": "all",
+      "max_grids": null,
+      "num_samples": 9,
+      "grid": true
+    },
+    "review": {
+      "enabled": false,
+      "num_samples": 6
+    }
+  }
+}

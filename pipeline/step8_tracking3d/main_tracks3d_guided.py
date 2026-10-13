@@ -14,9 +14,9 @@
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python pipeline/step7_tracking3d/main_tracks3d_guided.py                  # pick a run, annotate, track
-    python pipeline/step7_tracking3d/main_tracks3d_guided.py --no-gui         # reuse the saved annotations
-    python pipeline/step7_tracking3d/main_tracks3d_guided.py --source gt      # track through the ground-truth labels
+    python pipeline/step8_tracking3d/main_tracks3d_guided.py                  # pick a run, annotate, track
+    python pipeline/step8_tracking3d/main_tracks3d_guided.py --no-gui         # reuse the saved annotations
+    python pipeline/step8_tracking3d/main_tracks3d_guided.py --source gt      # track through the ground-truth labels
 
 Outputs go to a new folder per run, <run>/3d/<model or ground_truth>/factor_graph/guided_<datetime>/
 (same files as main_tracks3d.py - tracks, params, evaluation - plus the annotations drawn in the plots).

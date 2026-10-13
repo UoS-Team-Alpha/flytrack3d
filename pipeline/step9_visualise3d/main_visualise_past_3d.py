@@ -13,13 +13,13 @@ the arena and the grey triangulated points behind the tracks are rebuilt from th
 the current config, using the tracking3d settings and frame offsets saved with the result
 (params.json). The calibration itself is not saved: if cameras.views has changed since,
 those parts are drawn with the new calibration. Nothing is written to the result's folder
-(the arena is fitted and cached in <run>/3d/ if the run has no cache yet, as in steps 6 and 7).
+(the arena is fitted and cached in <run>/3d/ if the run has no cache yet, as in steps 7 and 8).
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python pipeline/step8_visualise3d/main_visualise_past_3d.py                    # choose everything from lists
-    python pipeline/step8_visualise3d/main_visualise_past_3d.py --kind guided      # choose a run, then a guided result
-    python pipeline/step8_visualise3d/main_visualise_past_3d.py --run run_20261008-101724_showoff_1 --kind tracks --result latest
+    python pipeline/step9_visualise3d/main_visualise_past_3d.py                    # choose everything from lists
+    python pipeline/step9_visualise3d/main_visualise_past_3d.py --kind guided      # choose a run, then a guided result
+    python pipeline/step9_visualise3d/main_visualise_past_3d.py --run run_20261008-101724_showoff_1 --kind tracks --result latest
 """
 
 import argparse

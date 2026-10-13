@@ -12,8 +12,8 @@ Predictions cached by earlier runs (same model, same frames) are reused.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python pipeline/step5_inference/main_inference2d.py --inputs path/to/new_videos
-    python pipeline/step5_inference/main_inference2d.py --models yolo_s_12_pruned_640_sahi --force-inference
+    python pipeline/step6_inference/main_inference2d.py --inputs path/to/new_videos
+    python pipeline/step6_inference/main_inference2d.py --models yolo_s_12_pruned_640_sahi --force-inference
 """
 
 import argparse

@@ -8,10 +8,10 @@ that, see main_tracks3d.py.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python pipeline/step6_points3d/main_points3d.py                     # pick a run from a list
-    python pipeline/step6_points3d/main_points3d.py --run run_20261006-113511_640_960inf_960window
-    python pipeline/step6_points3d/main_points3d.py --source gt         # triangulate the ground-truth labels instead
-    python pipeline/step6_points3d/main_points3d.py --no-show           # only save files
+    python pipeline/step7_points3d/main_points3d.py                     # pick a run from a list
+    python pipeline/step7_points3d/main_points3d.py --run run_20261006-113511_640_960inf_960window
+    python pipeline/step7_points3d/main_points3d.py --source gt         # triangulate the ground-truth labels instead
+    python pipeline/step7_points3d/main_points3d.py --no-show           # only save files
 
 Outputs go to <run>/3d/<model or ground_truth>/points/.
 """
