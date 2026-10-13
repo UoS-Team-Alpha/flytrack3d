@@ -1,9 +1,11 @@
-# evaluate_flydetect
+# flytrack3d
 
-Tools for evaluating fly detectors (YOLO, optionally with SAHI slicing) and turning their 2D detections from a calibrated multi-camera rig into 3D fly tracks.
+Deep-learning fly detection and 3D trajectory tracking from multi-camera video, built for noisy real-world scenes. Flies are detected with trained YOLO models rather than classical image processing, and a factor graph turns the detections into smooth 3D trajectories that hold up when cameras miss the fly. Starts from recorded videos and an existing camera calibration; capture and calibration are not part of this repo.
 
-- **2D:** run detectors on videos or image folders, cache the predictions, and score them against ground-truth labels: COCO-style mAP, precision / recall / F1, track plots and annotated videos.
-- **3D:** match detections across cameras, triangulate them, and refine them into smooth 3D tracks with a factor graph (gtsam). The factor graph combines reprojection factors with a constant-velocity motion prior, so it bridges frames where cameras miss the fly. Tracks can also be guided by hand-annotated start / end points. They are evaluated against the ground truth in 3D (RMSE in mm) and in 2D, by projecting the tracks back into each camera.
+- **Datasets:** cut videos, then build, merge, convert, check, tile and prune YOLO datasets.
+- **Detection:** train YOLO detectors (optionally with SAHI slicing), run them on videos or image folders, cache the predictions, and score them against ground-truth labels: COCO-style mAP, precision / recall / F1, track plots and annotated videos.
+- **3D tracking:** match detections across cameras, triangulate them, and refine them into smooth 3D tracks with a factor graph (gtsam). The factor graph combines reprojection factors with a constant-velocity motion prior, so it bridges frames where cameras miss the fly. Tracks can also be guided by hand-annotated start / end points.
+- **Evaluation and visualisation:** score tracks against the ground truth in 3D (RMSE in mm) and in 2D, by projecting them back into each camera, and reopen or plot past 3D results.
 
 ## Setup
 
