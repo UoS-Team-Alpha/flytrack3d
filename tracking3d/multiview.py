@@ -22,11 +22,12 @@ from pathlib import Path
 
 import numpy as np
 
-from evaluate2d.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, read_yolo_labels, resolve_label_dir
-from evaluate2d.evaluate_models import PRED_DIR
-from evaluate2d.linking import link_tracks
+from common.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, read_yolo_labels, resolve_label_dir
+from evaluate2d.predictions import PRED_DIR
+from common.linking import link_tracks
 
-from .triangulate import Camera, MatchSettings, camera_from_config, triangulate_session
+from .camera import Camera, camera_from_config
+from .triangulate import MatchSettings, triangulate_session
 
 FRAME_RE = re.compile(r"(\d+)$")
 

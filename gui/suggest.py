@@ -18,7 +18,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from tracking3d.triangulate import fundamental, triangulate_dlt
+from tracking3d.camera import fundamental, triangulate_dlt
 
 
 def distort(cam, xy: np.ndarray) -> np.ndarray:

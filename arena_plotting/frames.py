@@ -10,7 +10,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from evaluate2d.datasets import IMAGE_EXTS
+from common.datasets import IMAGE_EXTS
 
 
 def median_frame(source: dict, n_frames: int) -> np.ndarray | None:

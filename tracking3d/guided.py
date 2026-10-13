@@ -36,7 +36,8 @@ from tqdm import tqdm
 from .factor_graph import (MIN_MULTIVIEW_FRAMES, Track3D, _associate, _extend, _main_run, _solve, build_tracks,
                            gtsam_camera)
 from .multiview import View
-from .triangulate import Point3D, triangulate_dlt
+from .camera import triangulate_dlt
+from .triangulate import Point3D
 
 
 @dataclass

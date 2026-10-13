@@ -7,7 +7,7 @@ import re
 import matplotlib
 import numpy as np
 
-from evaluate2d.datasets import Frame, iter_frame_images
+from common.datasets import Frame, iter_frame_images
 
 GT_COLOUR = (0.1, 0.8, 0.2)     # green
 PRED_COLOUR = (0.9, 0.1, 0.6)   # magenta

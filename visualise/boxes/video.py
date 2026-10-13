@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from evaluate2d.datasets import Frame, group_sequences, iter_frame_images
+from common.datasets import Frame, group_sequences, iter_frame_images
 
 from ..common import GT_COLOUR, PRED_COLOUR, safe_name, to_bgr
 

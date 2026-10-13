@@ -2,7 +2,7 @@
 
 Frames are grouped into sequences by the folder part of their key
 ("<sequence>/frame_000161"), so each sequence gets its own plot. The tracks come from
-evaluate2d.linking (labels and detections carry no track IDs).
+common.linking (labels and detections carry no track IDs).
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
-from evaluate2d.datasets import Frame, frame_number, group_sequences  # noqa: E402
-from evaluate2d.linking import link_tracks  # noqa: E402
+from common.datasets import Frame, frame_number, group_sequences  # noqa: E402
+from common.linking import link_tracks  # noqa: E402
 
 from ..common import EXTRA_COLOUR, GT_COLOUR, PRED_COLOUR, first_image, safe_name  # noqa: E402
 

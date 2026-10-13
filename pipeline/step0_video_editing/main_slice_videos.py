@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from dataset_tools.video_tools.slice_videos import slice_videos  # noqa: E402
-from evaluate2d.config import load_config  # noqa: E402
+from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "video_config.json"   # "videos_dir" and "slice" hold the folder and the window

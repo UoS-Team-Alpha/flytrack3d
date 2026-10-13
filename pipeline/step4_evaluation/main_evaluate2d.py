@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
-from evaluate2d.config import load_config  # noqa: E402
+from common.config import load_config  # noqa: E402
 from evaluate2d.evaluate_models import run_evaluation  # noqa: E402
 
 # ============================================================================ SETTINGS

@@ -20,7 +20,7 @@ from itertools import combinations, product
 
 import numpy as np
 
-from tracking3d.triangulate import Camera, reprojection_errors, triangulate_dlt
+from tracking3d.camera import Camera, reprojection_errors, triangulate_dlt
 
 from ..hsv.segment import Blob
 

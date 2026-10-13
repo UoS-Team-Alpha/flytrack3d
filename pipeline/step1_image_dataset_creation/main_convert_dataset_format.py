@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))                # so the project packages import wh
 
 from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo  # noqa: E402
 from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco  # noqa: E402
-from evaluate2d.config import load_config  # noqa: E402
+from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "image_dataset_config.json"   # "convert_format" holds the direction, dataset and output folder

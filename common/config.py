@@ -19,11 +19,14 @@ def resolve_paths(obj, base: Path):
     return obj
 
 
+def trained_weights(output_dir: str | Path, wandb_project: str, run: str) -> Path:
+    """best.pt of a training run: <output_dir>/training/<wandb_project>/<run>/weights/best.pt."""
+    return Path(output_dir) / "training" / wandb_project / run / "weights" / "best.pt"
+
+
 def resolve_trained_runs(raw: dict, base: Path) -> None:
     """A model_path that is a bare name (no folder, no extension) names a run of main_train_detector.py:
     it becomes that run's best.pt, <output_dir>/training/<training.wandb_project>/<name>/weights/best.pt."""
-    from training.yolo import trained_weights
-
     for model in raw.get("models", []):
         run = model.get("model_path")
         if not isinstance(run, str) or not run or "/" in run or "\\" in run or Path(run).suffix:

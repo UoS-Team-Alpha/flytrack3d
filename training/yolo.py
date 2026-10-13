@@ -29,11 +29,6 @@ def run_name(t: dict) -> str:
     return name + (f"_{t['tag']}" if t.get("tag") else "")
 
 
-def trained_weights(output_dir: str | Path, wandb_project: str, run: str) -> Path:
-    """best.pt of a training run: <output_dir>/training/<wandb_project>/<run>/weights/best.pt."""
-    return Path(output_dir) / "training" / wandb_project / run / "weights" / "best.pt"
-
-
 def free_run_name(project_dir: Path, name: str) -> str:
     """name, or name_2, name_3, ... if a run of that name already exists (runs are never overwritten)."""
     candidate, n = name, 2

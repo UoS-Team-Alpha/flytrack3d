@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from tracking3d.triangulate import Camera
+from tracking3d.camera import Camera
 
 from ...fruit import Fruit
 from ...geometry import wall_of

@@ -37,7 +37,7 @@ ROOT = Path(__file__).resolve().parents[2]   # the repository root
 sys.path.insert(0, str(ROOT))                # so the project packages import when this file is run directly
 
 from arena_plotting import locate_arena  # noqa: E402
-from evaluate2d.config import load_config  # noqa: E402
+from common.config import load_config  # noqa: E402
 from tracking3d.evaluate import evaluate_tracks  # noqa: E402
 from tracking3d.factor_graph import build_tracks  # noqa: E402
 from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402
