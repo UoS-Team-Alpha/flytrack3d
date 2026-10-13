@@ -18,5 +18,8 @@ ultralytics>=8.4
 sahi>=0.12.6
 # wandb               # optional: W&B logging for training ('yolo settings wandb=True')
 
+# Dataset conversion (main_convert_dataset_format.py)
+# fiftyone>=1.21     # optional: only for yolo_to_coco (coco_to_yolo uses ultralytics)
+
 # 3D tracking (main_tracks3d.py, main_tracks3d_guided.py)
 gtsam>=4.3
