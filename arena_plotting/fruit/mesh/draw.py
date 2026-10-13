@@ -1,4 +1,4 @@
-"""Draw the fake fruit in the 3D plots of tracking3d/visualise.py: as a lit surface in 3D
+"""Draw the fake fruit in the 3D plots of visualise/plots3d/scene.py: as a lit surface in 3D
 axes, as its filled outline in the orthographic panels, and reprojected through a camera
 onto its image.
 

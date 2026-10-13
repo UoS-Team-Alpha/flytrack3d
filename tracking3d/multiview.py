@@ -24,7 +24,7 @@ import numpy as np
 
 from evaluate2d.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, read_yolo_labels, resolve_label_dir
 from evaluate2d.evaluate_models import PRED_DIR
-from evaluate2d.visualise import link_tracks
+from evaluate2d.linking import link_tracks
 
 from .triangulate import Camera, MatchSettings, camera_from_config, triangulate_session
 

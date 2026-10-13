@@ -1,4 +1,5 @@
-"""Track summaries and output files shared by main_tracks3d.py and main_tracks3d_guided.py."""
+"""Output files shared by main_tracks3d.py and main_tracks3d_guided.py (the summary text itself is
+laid out by visualise/metrics/tracking.py)."""
 
 from __future__ import annotations
 
@@ -7,32 +8,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from visualise.metrics.tracking import format_summary
+
 from .factor_graph import Track3D
-
-
-def format_summary(session, tracks: list[Track3D], summaries: list[dict], s: dict, heading: str) -> str:
-    lines = [f"Session   : {session.run.name}",
-             f"Detections: {session.label}",
-             f"Views     : " + ", ".join(f"{v.name} <- {v.input_name}" for v in session.views),
-             f"Settings  : " + ", ".join(f"{k}={v}" for k, v in s.items() if not k.startswith("_")), "",
-             heading, ""]
-    head = f"  {'id':>3}{'frames':>13}{'len':>6}{'dets':>6}{'3-view':>8}{'2-view':>8}{'1-view':>8}" \
-           f"{'reproj':>8}{'sigma':>8}{'path':>10}  {'entry xyz':<26}{'+/-':>7}{'2+ views @':>11}"
-    lines.append(head)
-    for t in summaries:
-        fv = t["frames_by_views"]
-        row = (f"  {t['id']:>3}{t['start_frame']:>6}-{t['end_frame']:<6}{t['frames']:>6}{t['detections']:>6}"
-               f"{fv.get(3, 0):>8}{fv.get(2, 0):>8}{fv.get(1, 0):>8}"
-               f"{t['reprojection_px_median'] or 0:>8.2f}{t['sigma_median'] or float('nan'):>8.2f}"
-               f"{t['path_length']:>10.1f}  {'(' + ', '.join(f'{v:.1f}' for v in t['entry_xyz']) + ')':<26}"
-               f"{t['entry_sigma'] or float('nan'):>7.1f}{t['first_multiview_frame']:>11}")
-        lines.append(row)
-    lines += ["", "  frames by views: frames where the track was detected in 3 / 2 / 1 cameras "
-                  "(others are bridged by the motion prior)",
-              "  reproj = median px error of its detections; sigma = median 1-sigma 3D uncertainty",
-              "  entry +/- = 1-sigma at the entry point (large while only one camera sees it: depth then",
-              "  comes from the motion prior alone); 2+ views @ = first frame seen by two or more cameras"]
-    return "\n".join(lines)
 
 
 def write_track_outputs(session, tracks: list[Track3D], s: dict, out_dir: Path, heading: str,

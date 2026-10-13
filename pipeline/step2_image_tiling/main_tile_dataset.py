@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT))                # so the project packages import wh
 
 from dataset_tools.image_tools.tiling.tile_dataset import TileSettings, tile_dataset  # noqa: E402
 from evaluate2d.config import load_config  # noqa: E402
-from visualise.yolo_dataset import show_dataset_samples  # noqa: E402
+from visualise.boxes.yolo_dataset import show_dataset_samples  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "image_tiling_config.json"   # "tile" holds the dataset, output folder and tiling settings

@@ -2,7 +2,7 @@
 
 Pipeline:
     1. Triangulated points (triangulate.py, >= 2 views per point) are linked frame to
-       frame into 3D tracklets (Hungarian on 3D distance, evaluate2d.visualise.link_tracks).
+       frame into 3D tracklets (Hungarian on 3D distance, evaluate2d.linking.link_tracks).
     2. Each tracklet seeds one track: a 3D position variable X_t for every frame of a
        contiguous range, with
          - a reprojection factor for every 2D detection associated with the track
@@ -36,7 +36,7 @@ import numpy as np
 from gtsam.symbol_shorthand import X
 from tqdm import tqdm
 
-from evaluate2d.visualise import link_tracks
+from evaluate2d.linking import link_tracks
 
 from .multiview import View
 from .triangulate import Camera, Point3D

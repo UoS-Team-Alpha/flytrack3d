@@ -43,7 +43,8 @@ from tracking3d.factor_graph import build_tracks  # noqa: E402
 from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402
 from tracking3d.report import write_track_outputs  # noqa: E402
 from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session  # noqa: E402
-from tracking3d.visualise import plot_tracks_3d, save_reprojection_plots, use_interactive_backend  # noqa: E402
+from visualise.plots2d.reprojection import save_reprojection_plots  # noqa: E402
+from visualise.plots3d.scene import plot_tracks_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration); "tracking3d" tunes the graph

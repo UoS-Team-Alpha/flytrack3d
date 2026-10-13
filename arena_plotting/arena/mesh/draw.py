@@ -1,4 +1,4 @@
-"""Draw the arena frame in the 3D plots of tracking3d/visualise.py: its pipes as thin lines
+"""Draw the arena frame in the 3D plots of visualise/plots3d/scene.py: its pipes as thin lines
 with a faint floor and a "top" label in 3D axes, the same in the orthographic panels,
 and its pipes reprojected (dashed) onto camera images."""
 

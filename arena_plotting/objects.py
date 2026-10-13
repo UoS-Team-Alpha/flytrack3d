@@ -1,5 +1,5 @@
 """Every static arena object of a session, located once and drawn together, so the plots in
-tracking3d/visualise.py take a single `arena` argument however many objects there are."""
+visualise/plots3d/scene.py take a single `arena` argument however many objects there are."""
 
 from __future__ import annotations
 

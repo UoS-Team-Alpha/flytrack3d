@@ -36,7 +36,7 @@ from evaluate2d.config import load_config  # noqa: E402
 from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402
 from tracking3d.past_results import KINDS, choose_past_run, choose_result  # noqa: E402
 from tracking3d.triangulate import MatchSettings, triangulate_session  # noqa: E402
-from tracking3d.visualise import plot_points_3d, plot_tracks_3d, use_interactive_backend  # noqa: E402
+from visualise.plots3d.scene import plot_points_3d, plot_tracks_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration)

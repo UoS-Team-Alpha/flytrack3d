@@ -5,5 +5,7 @@
     detectors        SAHI / Ultralytics detector wrappers
     metrics          COCO-style mAP and precision / recall
     evaluate_models  the evaluation pipeline: cached inference, scoring, reports
-    visualise        annotated videos and 2D track plots
+    linking          link per-frame points into tracks (no track IDs in labels / detections)
+
+Its track plots, annotated videos and text reports are in visualise/.
 """

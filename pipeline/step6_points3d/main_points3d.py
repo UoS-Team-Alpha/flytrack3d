@@ -31,7 +31,7 @@ from arena_plotting import locate_arena  # noqa: E402
 from evaluate2d.config import load_config  # noqa: E402
 from tracking3d.multiview import ground_truth_tracks, open_session  # noqa: E402
 from tracking3d.triangulate import MatchSettings, camera_baseline_report, triangulate_session  # noqa: E402
-from tracking3d.visualise import plot_points_3d, use_interactive_backend  # noqa: E402
+from visualise.plots3d.scene import plot_points_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
 CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration) and optionally "tracking3d"

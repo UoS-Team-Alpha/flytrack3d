@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -327,3 +329,18 @@ def dataset_summary(ds: Dataset, area_ranges: dict[str, list[float]]) -> dict:
         "fingerprint": ds.fingerprint(),
         "source": json.loads(json.dumps(ds.source, default=str)),
     }
+
+
+# ----------------------------------------------------------------------------- sequences
+
+def group_sequences(frames: list[Frame]) -> "OrderedDict[str, list[Frame]]":
+    seqs: OrderedDict[str, list[Frame]] = OrderedDict()
+    for f in frames:
+        seq = f.key.rsplit("/", 1)[0] if "/" in f.key else "sequence"
+        seqs.setdefault(seq, []).append(f)
+    return seqs
+
+
+def frame_number(frame: Frame, fallback: int) -> int:
+    m = re.search(r"(\d+)$", frame.key)
+    return int(m.group(1)) if m else fallback

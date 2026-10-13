@@ -36,14 +36,15 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from evaluate2d.datasets import Dataset, load_dataset, read_class_names
-from evaluate2d.evaluate_models import (PRED_DIR, _fmt, _pr_key, eval_settings, evaluate, load_predictions,
-                                        save_predictions)
-from evaluate2d.visualise import _safe_name, frame_number, save_track_plots
+from evaluate2d.datasets import Dataset, frame_number, load_dataset, read_class_names
+from evaluate2d.evaluate_models import PRED_DIR, eval_settings, evaluate, load_predictions, save_predictions
+from visualise.boxes.video import save_backproj_video
+from visualise.common import safe_name
+from visualise.metrics.tracking import format_2d, format_3d
+from visualise.plots2d.track_plots import save_track_plots
 
 from .factor_graph import Track3D
 from .multiview import View
-from .visualise import save_backproj_video
 
 VARIANTS = ("detector", "+ factor graph", "on tracks only")
 
@@ -109,47 +110,6 @@ def evaluate_3d(tracks: list[Track3D], gt_tracks: list[np.ndarray], gate: float)
                            "3 views": stats([m for m in matches if m[3] >= 3])},
         "per_track": per_track, "per_gt_track": per_gt,
     }
-
-
-def _stats_row(label: str, e: dict) -> str:
-    if not e["n"]:
-        return f"  {label:<12}{0:>7}"
-    return (f"  {label:<12}{e['n']:>7}{e['rmse']:>9.2f}{e['mean']:>8.2f}{e['median']:>8.2f}{e['p95']:>8.2f}"
-            f"{e['max']:>8.2f}   " + " / ".join(f"{v:.2f}" for v in e["rmse_xyz"]))
-
-
-def format_3d(r: dict) -> str:
-    pct = lambda v: f"{100 * v:.1f}%" if v is not None else "n/a"  # noqa: E731
-    lines = ["3D evaluation against ground truth (world units = mm with the calibration in mm)", "",
-             f"  ground truth : {r['gt_points']} points in {r['gt_tracks']} tracks (GT labels triangulated in 2+ "
-             f"views and linked - not error-free themselves)",
-             f"  matching     : per frame, Hungarian on 3D distance, within {r['match_distance']:g}",
-             f"  recall       : {r['matched']} / {r['gt_points']} ground-truth points matched by a track "
-             f"({pct(r['recall'])})",
-             f"  precision    : {r['matched']} / {r['track_points_in_gt_frames']} track points in frames with "
-             f"ground truth matched ({pct(r['precision'])})",
-             f"                 ({r['track_points'] - r['track_points_in_gt_frames']} track points fall in "
-             f"frames without any ground-truth 3D point and are not scored)", "",
-             "  Error of matched points",
-             f"  {'':<12}{'n':>7}{'RMSE':>9}{'mean':>8}{'median':>8}{'p95':>8}{'max':>8}   RMSE x / y / z",
-             _stats_row("all", r["error"])]
-    lines += [_stats_row(k, e) for k, e in r["error_by_views"].items()]
-    lines += ["  (views = cameras with a detection on the track in that frame; 0-1 = position mostly from the",
-              "   motion prior and single camera rays)", "",
-              "  Per track",
-              f"  {'id':>4}{'frames':>8}{'matched':>9}{'GT track':>10}{'share':>8}{'RMSE':>9}{'median':>8}{'max':>8}"]
-    for t in r["per_track"]:
-        e = t["error"]
-        share = f"{100 * t['matched_to_gt_track'] / t['matched']:.0f}%" if t["matched"] else "-"
-        lines.append(f"  {t['id']:>4}{t['frames']:>8}{t['matched']:>9}{t['gt_track'] or '-':>10}{share:>8}"
-                     + (f"{e['rmse']:>9.2f}{e['median']:>8.2f}{e['max']:>8.2f}" if e["n"] else ""))
-    lines += ["  (GT track = the ground-truth track it matches most; share = fraction of its matches on it)", "",
-              "  Per ground-truth track",
-              f"  {'id':>4}{'frames':>13}{'points':>8}{'covered':>9}  tracks"]
-    for g in r["per_gt_track"]:
-        lines.append(f"  {g['id']:>4}{g['start_frame']:>6}-{g['end_frame']:<6}{g['points']:>8}"
-                     f"{100 * g['matched'] / g['points']:>8.1f}%  {', '.join(map(str, g['tracks'])) or '-'}")
-    return "\n".join(lines)
 
 
 # ----------------------------------------------------------------------------- 2D
@@ -257,32 +217,6 @@ def evaluate_2d(views: list[View], data: list[ViewData], inserted: list[dict], o
     return out
 
 
-def format_2d(r: dict, data: list[ViewData], score: float) -> str:
-    first = r["ALL (pooled)"]["detector"]
-    pr_key = _pr_key(first)
-    tag = pr_key.replace("IoU@", "@")
-    maps = list(first["mAP"])
-    width = max(len(n) for n in r) + 2
-    lines = ["2D evaluation with the factor-graph tracks projected back into each camera", "",
-             f"  detector       : the saved predictions (as main_evaluate2d.py scored them)",
-             f"  + factor graph : plus a box wherever a track has no detection in that view (score {score:g})",
-             f"  on tracks only : only the predictions a track used, plus those boxes",
-             f"  P / R / F1 at conf {data[0].conf:g}; all sizes", "",
-             f"  {'view':<{width}}{'predictions':<16}{'boxes':>7}{'P' + tag:>9}{'R' + tag:>9}{'F1' + tag:>9}"
-             + "".join(f"{m.replace('mAP', ''):>10}" for m in maps)]
-    for view, by_variant in r.items():
-        for i, (name, res) in enumerate(by_variant.items()):
-            at = res["precision_recall"][pr_key]["at_conf"]
-            lines.append(f"  {view if i == 0 else '':<{width}}{name:<16}{res['boxes']:>7}{_fmt(at['precision']):>9}"
-                         f"{_fmt(at['recall']):>9}{_fmt(at['f1']):>9}"
-                         + "".join(f"{_fmt(res['mAP'][m]['all']):>10}" for m in maps))
-        lines.append("")
-    if score < data[0].conf:
-        lines.append(f"  NOTE: backproj_score {score:g} is below the P/R confidence {data[0].conf:g}, so inserted "
-                     f"boxes only count towards mAP.")
-    return "\n".join(lines)
-
-
 # ----------------------------------------------------------------------------- entry
 
 def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: list[np.ndarray] | None,
@@ -325,7 +259,7 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
         if s["visualise_backproj_video"]:
             points = project_tracks(tracks, session.views, data)
             for v, d, ins, pts in zip(session.views, data, inserted, points):
-                save_backproj_video(d.ds.frames, d.preds, ins, pts, out_dir / "reprojection" / f"{_safe_name(v.name)}.mp4",
+                save_backproj_video(d.ds.frames, d.preds, ins, pts, out_dir / "reprojection" / f"{safe_name(v.name)}.mp4",
                                     v.name, session.model, d.conf, fps=float(vis.get("video_fps", 30)))
             msgs.append(f"Back-projection videos: {out_dir / 'reprojection'}/<camera>.mp4")
         if s["visualise_backproj_graph"]:

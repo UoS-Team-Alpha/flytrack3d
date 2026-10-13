@@ -1,4 +1,4 @@
-"""Draw the leaves (a flat outline on the wall) in the 3D plots of tracking3d/visualise.py:
+"""Draw the leaves (a flat outline on the wall) in the 3D plots of visualise/plots3d/scene.py:
 filled in 3D axes and the orthographic panels, and reprojected onto camera images."""
 
 from __future__ import annotations
