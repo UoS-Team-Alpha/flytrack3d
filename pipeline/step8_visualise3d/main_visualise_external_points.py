@@ -25,11 +25,11 @@ calibration will not line up with the cameras.
 From the IDE: fill in the config (or the SETTINGS block below) and press Run (or F5).
 From the command line, flags override the settings and the config; giving --csv, --labels or
 --fg-labels replaces all three of the config's:
-    python pipeline/step8_visualise/main_visualise_external_points.py                 # everything from the config
-    python pipeline/step8_visualise/main_visualise_external_points.py --csv path/to/points.csv
-    python pipeline/step8_visualise/main_visualise_external_points.py --csv path/to/tracks_3d.csv --videos path/to/videos
-    python pipeline/step8_visualise/main_visualise_external_points.py --labels path/to/predictions --fg-labels path/to/reprojection/labels
-    python pipeline/step8_visualise/main_visualise_external_points.py --labels path/to/run_folder --link --save plot.png
+    python pipeline/step8_visualise3d/main_visualise_external_points.py                 # everything from the config
+    python pipeline/step8_visualise3d/main_visualise_external_points.py --csv path/to/points.csv
+    python pipeline/step8_visualise3d/main_visualise_external_points.py --csv path/to/tracks_3d.csv --videos path/to/videos
+    python pipeline/step8_visualise3d/main_visualise_external_points.py --labels path/to/predictions --fg-labels path/to/reprojection/labels
+    python pipeline/step8_visualise3d/main_visualise_external_points.py --labels path/to/run_folder --link --save plot.png
 """
 
 import argparse

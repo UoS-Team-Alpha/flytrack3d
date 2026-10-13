@@ -18,5 +18,20 @@
     "output_dir": "path/to/dataset_coco",
     "splits": ["train", "val"],
     "copy_images": true
+  },
+
+  "analyse": {
+    "_readme": "Settings for main_analyse_dataset.py, which reports what a YOLO dataset holds and never changes it. input_dir = the dataset, as its folder or its data.yaml (images/<split> + labels/<split>, or <split>/images + <split>/labels; .jpg and .png images, also in sub-folders of a split). splits = the splits to analyse; null = every one found of train, val, valid, validation and test. prefix_separator = what ends the video name in a frame's file name ('<video>_frame_000123.png'); frames named without it are grouped by their sub-folder of the split. show_plots = open the pie charts and the box plots (needs a display). save = write report.txt, summary.json, contents.png and boxes.png to output_dir; null = output/dataset_analysis/<dataset name>/, where an earlier report of the same dataset is replaced. samples = also open num_samples random images of 'split' with their boxes drawn (press any key for the next); split null = the first split analysed.",
+    "input_dir": "path/to/dataset",
+    "splits": null,
+    "prefix_separator": "_frame_",
+    "show_plots": true,
+    "save": true,
+    "output_dir": null,
+    "samples": {
+      "enabled": false,
+      "split": null,
+      "num_samples": 5
+    }
   }
 }

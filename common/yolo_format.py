@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 
 IMAGE_SUFFIXES = (".jpg", ".png")
+SPLIT_NAMES = ("train", "val", "valid", "validation", "test")
 
 
 def split_dirs(dataset_dir: str | Path, split: str) -> tuple[Path, Path]:
@@ -24,9 +25,14 @@ def split_dirs(dataset_dir: str | Path, split: str) -> tuple[Path, Path]:
     return images, labels
 
 
-def list_images(image_dir: str | Path) -> list[Path]:
-    """The .jpg and .png images of a folder, sorted by file name."""
-    return sorted(p for p in Path(image_dir).glob("*") if p.suffix in IMAGE_SUFFIXES)
+def find_splits(dataset_dir: str | Path) -> list[str]:
+    """The splits (of SPLIT_NAMES) a dataset has an image folder for."""
+    return [split for split in SPLIT_NAMES if split_dirs(dataset_dir, split)[0].is_dir()]
+
+
+def list_images(image_dir: str | Path, recursive: bool = False) -> list[Path]:
+    """The .jpg and .png images of a folder, sorted by file name. recursive = also those in its sub-folders."""
+    return sorted(p for p in Path(image_dir).glob("**/*" if recursive else "*") if p.suffix in IMAGE_SUFFIXES)
 
 
 def read_yolo_boxes(label_path: str | Path) -> list[list[float]]:
