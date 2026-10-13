@@ -12,129 +12,104 @@ pip install -r requirements.txt
 python setup_configs.py
 ```
 
-`setup_configs.py` copies every template in `configs/` to the config it stands for (`configs/training.example.json` to `configs/training.json`, and so on), never touching a config that already exists, and lists the ones to fill in. Fill in your paths, models and camera calibration, then delete the `"_example"` line of each of those. The scripts refuse to run a config that still has it. Start with `configs/shared/paths.json`, which most of the others refer to. The real configs are gitignored; only the `*.example.json` templates are tracked. Every config section has a `_readme` entry that explains its settings. Relative paths in a config are resolved against the folder that config is in, and results go to `output/` in the project root unless a config sets `output_dir`.
+`setup_configs.py` copies every template in `configs/` to the config it stands for (`configs/training.example.json` to `configs/training.json`, and so on), never touching a config that already exists, and lists the ones to fill in. Then:
 
-## Configs
+1. Fill in your paths, models and camera calibration. Start with `configs/shared/paths.json`, which most of the others refer to.
+2. Delete the `"_example"` line of each config you filled in. The scripts refuse to run a config that still has it.
 
-Each pipeline stage has one config in `configs/`, and the settings that several stages need are in `configs/shared/`, where they are set once:
+How the configs fit together is described in [configs/README.md](configs/README.md).
 
-| Config | Used by | Holds |
-| --- | --- | --- |
-| `video.json` | step 0 | the videos folder and the slice window |
-| `image_dataset.json` | step 1 | one section per script |
-| `image_tiling.json` | step 2 | the tiling settings |
-| `dataset_pruning.json` | step 3 | one section per script |
-| `training.json` | step 4 | the `training` section |
-| `detection.json` | steps 5 and 6 | the `models`; includes the detection source, the evaluation settings and `training.json` |
-| `tracking.json` | steps 7 to 9 | only includes: cameras, tracking3d, arena plotting, evaluation |
-| `external_points.json` | step 9 (external points) | the `inputs`; includes cameras, tracking3d, arena plotting |
-| `shared/paths.json` | | the folders several configs point at, by name |
-| `shared/detection_source.json` | | what steps 5 and 6 run the detectors on: a YOLO split, a video, or a folder of camera videos (`detection_source.batch.example.json`) |
-| `shared/evaluation.json` | | the `evaluation` and `visualisation` settings |
-| `shared/cameras.json` | | the camera calibration |
-| `shared/tracking3d.json` | | the 3D matching and factor graph settings |
-| `shared/arena_plotting.json` | | the fruit, leaves and arena frame |
+## Pipeline
 
-A config pulls in other files with `"_include"`, a list of paths relative to its own folder:
+The scripts to run are the `main_*.py` files in `pipeline/`, grouped into numbered steps in the order you would normally use them. [pipeline/README.md](pipeline/README.md) explains how to run them and summarises each step; each step folder has its own README with the full description of its scripts.
 
-```json
-{
-  "_include": ["shared/detection_source.json", "shared/evaluation.json", "training.json"],
-  "models": [...]
-}
-```
-
-The included files are merged in order and the config's own keys win, section by section, so a stage can override one shared setting without copying the rest (e.g. `"tracking3d": {"n_tracks": 3}` in `tracking.json`). To keep a second set-up, such as another detection source, copy the stage config under a new name, point its `_include` at the other shared file and pass it with `--config`. A run folder's `config.json` is the merged result, so it records everything the run used.
-
-"Dataset" means two things in this project, kept in different places. A YOLO dataset on disk (`images/<split>`, `labels/<split>`, `data.yaml`) is what steps 1 to 4 build, prune and train on; each of their configs names it in its own setting (`input_dir`, `training.data_yaml`). The detection source is what steps 5 and 6 run the detectors on, which may be a split of such a dataset or the camera videos of one session. Steps 7 to 9 read neither: they work on the run folder that step 5 or 6 wrote.
-
-Because the same folders come up in several configs, `shared/paths.json` gives them names:
-
-```json
-{
-  "paths": {
-    "full_dataset": "/data/full_dataset",
-    "pruned_dataset": "/data/pruned_dataset",
-    "session_videos": "/data/session_01/videos"
-  }
-}
-```
-
-A config that includes it can write `${name}` in any setting, e.g. `"data_yaml": "${pruned_dataset}/data.yaml"`, so a new pruned dataset is one edit. The names are free to choose, and an entry may use another one.
-
-## Scripts
-
-The scripts to run are the `main_*.py` files in `pipeline/`, grouped into numbered steps in the order you would normally use them. Each can be run from the IDE (edit its `SETTINGS` block and press Run) or from the command line, e.g. `python pipeline/step5_evaluation/main_evaluate2d.py`, where flags override those settings (`--help` lists them). They work from any working directory and each reads its stage's config from `configs/` (see above; `--config` gives another). The evaluation and 3D scripts each write to a timestamped `output/run_<datetime>/` folder, or into the run folder they work on.
-
-**Step 0: video editing** (`pipeline/step0_video_editing/`)
-
-- **`main_slice_videos.py`**: cuts the same time window (`start` to `end`) out of every video in a folder, using an ffmpeg stream copy (fast, no re-encoding; needs `ffmpeg` on the PATH). The folder and the window come from its own config, `configs/video.json` (template: `configs/video.example.json`). The slices keep the videos' file names and go to `<videos_dir>/sliced` unless `output_dir` is set; existing slices are skipped.
-
-**Step 1: image dataset creation** (`pipeline/step1_image_dataset_creation/`) - more tools to come
-
-- **`main_reconstruct_cvat_dataset.py`**: rebuilds a YOLO dataset from a CVAT annotation export (zip) and the video it was annotated on. CVAT exports the labels of a video task without the images, so this pulls the labelled frames out of the video and writes `images/train/`, `labels/train/`, `train.txt` and `data.yaml`. Only frames with annotations are kept unless `--keep-empty`. A label's number is used as the frame index in the video, so the task must have been made from that video with frame step 1. Its settings are the `reconstruct_cvat` section of `configs/image_dataset.json`.
-- **`main_merge_datasets.py`**: merges a folder of YOLO datasets (one per sub-folder) into one dataset, as `images/<split>/<dataset>_<image>`, `labels/<split>/`, `<split>.txt` and `data.yaml`. The same image is never added twice: the images already in the output (it may hold an earlier merge, which is then added to) and every image to add are hashed over the whole file, and an image whose hash is already there, in any split, is skipped. The skipped duplicates are reported, as are those whose labels differ from the copy that was kept. `--keep-classes` keeps only those classes' boxes (renumbered from 0) and `--no-keep-empty` drops images left without a box. Nothing in the output is overwritten and the merged datasets are never changed. Its settings are the `merge` section of `configs/image_dataset.json`.
-- **`main_convert_dataset_format.py`**: converts a detection dataset between the YOLO and COCO formats. `yolo_to_coco` (FiftyOne) turns a YOLO dataset folder (`data.yaml`, `images/`, `labels/`) into `data/` plus `annotations/instances_<split>.json`; `coco_to_yolo` (Ultralytics) turns that layout back into `images/<split>/`, `labels/<split>/` and a `data.yaml` ready for training. The input is never changed, and `--symlink` links the images instead of copying them. Its settings are the `convert_format` section of `configs/image_dataset.json`.
-- **`main_analyse_dataset.py`**: reports what a YOLO dataset holds, without changing it. For each split (train / val / test) it lists the video prefixes with their image, background-image and instance counts, the image sizes, and the distribution of the box sizes and of the instances per image. It warns when a video is in more than one split, when images and label files do not pair up, and when boxes reach outside their image. It then shows two figures: pie charts of the images and instances per split and per video, and, per split, heatmaps of where the boxes sit and of their width against their height, with a histogram of their size. A frame's video is the part of its file name before `_frame_`, else its sub-folder of the split. The report and figures are saved to `output/dataset_analysis/<dataset name>/` (`--no-save` to skip, `--no-show` for no windows), and `--samples` also opens a few random images with their boxes drawn. Its settings are the `analyse` section of `configs/image_dataset.json`.
-- **`main_check_bboxes.py`**: opens a few random images of a YOLO dataset with their boxes and class names drawn, one at a time (press any key for the next), to check the labels line up. `-n` sets how many, `--split` which split they come from and `--seed` shows the same ones every run. Nothing is saved and the dataset is never changed. Its settings are the `check_bboxes` section of `configs/image_dataset.json`.
-
-**Step 2: image tiling** (`pipeline/step2_image_tiling/`)
-
-- **`main_tile_dataset.py`**: tiles a full-frame YOLO dataset into small square crops (`crop_size`), to train a detector that is then run with sliced (SAHI) inference. Each image gives tiles at random positions around its objects, so that every object ends up in a tile; a box cut by a tile's edge is kept only if enough of it is visible. A fraction of the images (`empty_fraction`, plus every image without labels) also gives an empty background tile, and these are spread evenly over a 3x3 grid of the frame. The output is a YOLO dataset with a `data.yaml`, ready for training (step 4). Afterwards it shows a few random tiles with their boxes drawn, to check the labels (`--no-visualise` to skip, `--visualise-only` to view tiles made earlier). `--fraction 0.1` tiles 10% of each split as a quick test. Its settings are the `tile` section of `configs/image_tiling.json`.
-
-**Step 3: dataset pruning** (`pipeline/step3_dataset_pruning/`)
-
-A dataset built from tracked video is full of near-identical frames: a fly that sits still gets the same bounding box size in hundreds of consecutive frames. This step finds those frames and builds a pruned copy of the dataset without them. The original dataset is only ever read. It needs a dataset laid out as `images/<split>/` + `labels/<split>/`, and its settings are in `configs/dataset_pruning.json`. Both scripts are interactive: choose options by number, `q` quits at any prompt and Ctrl+C exits cleanly, also while a plot window is open.
-
-- **`main_analyse_redundancy.py`**: look before you prune; nothing is changed. Pick a split and a video prefix (or all prefixes). The boxes are grouped by their exact width and height (augmentation moves a box but does not resize it), and each size is a **rank**: rank 1 is the most common. For the top `ssim_ranks` ranks, each box is cropped from the greyscale image and compared with [SSIM](https://en.wikipedia.org/wiki/Structural_similarity_index_measure) in frame order: a crop is **kept** if it differs (SSIM < `ssim_threshold`) from every crop kept so far, else it is **redundant**. A rank's `distinct / count` ratio says how varied it is: a still fly might give 12 distinct crops out of 782. Then pick saved results and a rank to see sample frames of it with the boxes drawn (`--no-grids` to skip, `--grids-only` to view results saved earlier). `decimals` rounds the sizes before grouping them (3 = within 0.64 px at 640 px), so more boxes fall into the top ranks. Results are reused while the label files and settings are unchanged. Its settings are the `analyse_redundancy` section.
-- **`main_guided_prune.py`**: walks a whole split one video prefix at a time and builds one pruned dataset at the end. For each prefix it runs the analysis above, shows a grid for each SSIM'd rank, prints which ranks it would prune (those with `distinct / count` below `distinct_cutoff`) and what that drops, and asks `y` to accept or `n` to keep the prefix as it is. A frame is dropped only if **every** box in it is redundant, so no fly is ever left unlabelled; `keep_fraction` / `min_keep_per_rank` of each rank's redundant frames are kept anyway as a safety margin, and no video loses more than `max_drop_fraction` of its frames. When every prefix is done, it asks whether to build `output/pruned_datasets/<dataset>_pruned_<ddmmyyyy>/` (`_2`, `_3`, ... if built again the same day): images hard-linked, labels copied, image lists (`train.txt`) filtered, and the other splits copied unchanged. The before / after counts per split and per video are printed and saved next to it. Every answer is saved straight away, so after `q` or Ctrl+C the next run offers to continue where you left off (with the session's own settings) or to start again. Its settings are the `guided_prune` section.
-  - **Stricter second pass:** after a full pass, the largest videos may still dominate the split, usually because only a small share of their boxes fell into the analysed ranks. Set `prefixes` (full video prefixes, or a part that matches exactly one) with `decimals: 3`, a larger `top_n` / `ssim_ranks` and a lower `min_keep_per_rank` to walk only those videos again. Each is planned as if its own earlier run were not there: `y` replaces that run, `n` keeps it, and everything is rebuilt once at the end. The subset has its own session, so the full-split one is not affected.
-  - **Review:** `--review` (or `--review-only`) shows the frames a run dropped, each next to the kept frame it matched, zoomed in on the fly and labelled with its SSIM.
-  - **What is kept where:** everything is under `output/pruned_datasets/` (`output_dir` to change; keep it on the dataset's drive, or the images are copied instead of hard-linked). `bbox_sizes/` holds the rank tables, the per-box SSIM decisions and a fingerprint of the label files and settings, by which out-of-date results are refused. `purge/` holds each run's manifest (`prune_<run_id>.csv`: every dropped frame with the frame it matched), `purge_log.csv` (every run's status: `planned`, `applied`, `declined`, `discarded`, `replaced`) and the guided sessions. A pruned dataset is always the original minus every applied run. Deleting the original or an old pruned folder does not affect the images in the other folders, but editing an image in place changes it in every folder that links to it. YOLO's `labels/*.cache` files are not copied, so they are rebuilt. A relative `path:` in `data.yaml` gets a warning, because Ultralytics resolves it against its datasets folder rather than the yaml's own folder.
-
-**Step 4: YOLO training** (`pipeline/step4_training/`)
-
-- **`main_train_detector.py`**: trains a YOLO detector with Ultralytics from the `training` section of `configs/training.json`: the dataset yaml, GPU, W&B project / group, YOLO version and size, the optional P2 head (an extra small-object detection layer, from `p2_model_yaml`) and the training arguments. With `load_pretrained`, the standard model's pretrained weights are loaded, also into the P2 architecture (backbone and P3-P5 heads; the P2 layers start random). Runs go to `output/training/<wandb_project>/<run name>/`, named like the W&B run, e.g. `yolo_s_12_base` (`_2`, `_3`, ... if the name is taken). To evaluate a trained model, set a model's `model_path` in the `models` of `configs/detection.json` to the run name (e.g. `"model_path": "yolo_s_12_base"`) instead of a path; it resolves to that run's `weights/best.pt`.
-
-**Step 5: evaluation** (`pipeline/step5_evaluation/`)
-
-- **`main_evaluate2d.py`**: runs the enabled detectors on the detection source (`configs/shared/detection_source.json`) and scores them against the ground-truth labels: mAP@0.2 / 0.5 / 0.5:0.95, P/R/F1, a side-by-side model comparison, plus optional track plots and annotated videos. Predictions are cached and reused while the model and frames are unchanged. With a batch source (`shared/detection_source.batch.example.json`), each camera video becomes one input of the run, and that run is what the 3D scripts work on.
-
-**Step 6: inference** (`pipeline/step6_inference/`)
-
-- **`main_inference2d.py`**: runs the detectors without ground truth, on new recordings (`--inputs path/to/videos`). It writes a run folder with the same layout as an evaluation run, so the 3D scripts can use it directly.
-
-**Step 7: 3D points** (`pipeline/step7_points3d/`)
-
-- **`main_points3d.py`**: matches each frame's detections across the cameras (epipolar distance, Hungarian method) and triangulates them into 3D points, with no tracking. Useful for checking the calibration and the cross-camera matching.
-
-**Step 8: 3D tracking** (`pipeline/step8_tracking3d/`)
-
-- **`main_tracks3d.py`**: builds 3D tracks automatically. Triangulated points are linked into tracklets, each tracklet seeds a factor-graph track, and every 2D detection is associated with tracks iteratively, including detections seen by one camera only. Detections at fixed pixel positions (background clutter) are removed first. Results go to `<run>/3d/<model>/factor_graph/tracks_<datetime>/`: tracks (`tracks_3d.csv`), settings (`params.json`), 3D and reprojection plots, and, when the run has labels, `evaluation_3d.txt` / `evaluation_2d.txt`.
-- **`main_tracks3d_guided.py`**: 3D tracks for hand-picked flies. An annotator opens each camera's video, where you click where each fly starts and / or ends. Later views can suggest the points from earlier views using the epipolar geometry. Each annotated fly gets exactly one track: the clicks fix its frame range and act as trusted constraints. Annotations are saved and can be reused with `--no-gui`. The annotator keeps the views in sync using each camera's `frame_offset`. Switching views opens the same instant, `g` jumps to the selected fly's point in another view, and if the same START / END is annotated in two views, the panel shows the offset that would line them up. To find an unknown offset, annotate one sharp event, like a take-off, in every view. Outputs and evaluation are the same as for `main_tracks3d.py`, in `factor_graph/guided_<datetime>/`.
-
-**Step 9: visualise 3D** (`pipeline/step9_visualise3d/`)
-
-- **`main_visualise_past_3d.py`**: opens the interactive 3D plot of a past step 7 / 8 result again, without recomputing it. In the terminal, choose a run, then what to view (its triangulated points, a past unguided run or a past guided run), then which one if there are several. The points / tracks are read from the saved csv; the cameras, ground-truth overlay, arena and the grey points behind the tracks are rebuilt using the settings and frame offsets saved in the result's `params.json`. The calibration is not saved with a result, so those parts follow the current `cameras` config. Nothing is written to the result's folder.
-- **`main_visualise_external_points.py`**: the same 3D plot for files that come without their run. It has its own config, `configs/external_points.json` (template: `configs/external_points.example.json`), which holds the inputs and includes the shared calibration (`cameras`) and `tracking3d` / `arena_plotting` settings. The inputs are set in the config's `inputs` section or with the flags named here. Give it a csv (`--csv`: a `points.csv`, a `tracks_3d.csv`, or any csv with `frame, x, y, z` columns; a `track` column makes it a track plot), or YOLO labels (`--labels` for the detector's predictions and / or `--fg-labels` for the boxes the factor graph inserted, each a folder with one sub-folder per camera, named after it). Labels are pooled, shifted by each camera's `frame_offset`, and matched and triangulated as in step 7; `--link` also links the points into tracks (no factor graph). The fruit, leaves and arena frame are drawn only with `--videos` (a folder with one video per camera), since they are found in the images; their fits are cached in `output/external/<videos folder>/3d/`. `--save plot.png` also saves the figure.
-
-Use `--source gt` on the 3D scripts to run them on the ground-truth labels instead of the predictions.
-
-The 3D scripts also draw the red fake fruit, the green leaves around it and the arena frame, with no annotation needed. The fruit and leaves come from each view's median frame (frames sampled across the video, so the flies vanish), segmented in HSV:
-
-- **Fruit:** round, saturated red blobs are candidates. The combination of one blob per view that triangulates consistently is the fruit, which gives the centre of its base on the wall. Its radius is measured from the blobs. It is drawn as a shaded hemisphere bulging out from the wall, towards the cameras.
-- **Leaves:** the green region around the fruit in each view is laid flat onto the fruit's wall (camera rays meet the wall plane), and kept where at least two views agree. The terminal prints how well each view agrees (IoU), a quick check of the calibration.
-- **Arena frame:** the tapered box of pipes is grown out from the fruit using its measured size (`arena_plotting.arena`): the back face on the fruit's wall, upright, at a fixed offset from the fruit, and the front face `depth` towards the cameras. It is only as accurate as the fruit's placement on the back wall, so check the dashed frame in the reprojection images.
-
-The fruit and leaves are fitted once per run and cached in `<run>/3d/fruit/` and `<run>/3d/leaves/`, each with one debug image per camera (`hsv/<camera>.jpg`). The settings are in `configs/shared/arena_plotting.json`. The frame needs no fitting. Use `--no-arena` to skip all three.
+| Step | Folder | What it does | Config |
+| --- | --- | --- | --- |
+| 0 | [step0_video_editing](pipeline/step0_video_editing/README.md) | cut a time window out of a folder of videos | `video.json` |
+| 1 | [step1_image_dataset_creation](pipeline/step1_image_dataset_creation/README.md) | build, merge, convert and check YOLO datasets | `image_dataset.json` |
+| 2 | [step2_image_tiling](pipeline/step2_image_tiling/README.md) | tile a full-frame dataset into training crops | `image_tiling.json` |
+| 3 | [step3_dataset_pruning](pipeline/step3_dataset_pruning/README.md) | find near-identical frames and build a pruned dataset | `dataset_pruning.json` |
+| 4 | [step4_training](pipeline/step4_training/README.md) | train a YOLO detector | `training.json` |
+| 5 | [step5_evaluation](pipeline/step5_evaluation/README.md) | run detectors and score them against ground truth | `detection.json` |
+| 6 | [step6_inference](pipeline/step6_inference/README.md) | run detectors on new recordings, without ground truth | `detection.json` |
+| 7 | [step7_points3d](pipeline/step7_points3d/README.md) | match detections across cameras and triangulate them | `tracking.json` |
+| 8 | [step8_tracking3d](pipeline/step8_tracking3d/README.md) | build 3D tracks with the factor graph, automatic or guided | `tracking.json` |
+| 9 | [step9_visualise3d](pipeline/step9_visualise3d/README.md) | reopen past 3D results, or plot points from outside a run | `tracking.json`, `external_points.json` |
 
 ## Layout
 
-- **`pipeline/`**: the `main_*.py` scripts, one folder per step (see Scripts). They only parse settings and call into the packages below.
-- **`common/`**: what every package below builds on, importing none of them: config loading (`config.py`), frames and datasets (`datasets.py`), reading YOLO datasets from disk (`yolo_format.py`) and the frame-to-frame track linker (`linking.py`).
-- **`dataset_tools/`**: dataset creation, cleaning and conversion. `tile.py` tiles a full-frame dataset into training crops; `cvat.py` rebuilds a dataset from a CVAT export and its video; `merge.py` merges a folder of datasets into one without duplicate images; `stats.py` computes the per-split statistics of a dataset (videos, images, instances, box sizes); `convert_yolo_to_coco.py` and `convert_coco_to_yolo.py` are the YOLO -> COCO and COCO -> YOLO converters; `slice_videos.py` cuts a time window out of a folder of videos; `prune/` is the dataset pruning (below).
-- **`dataset_tools/prune/`**: dataset pruning (step 3). `redundancy.py` ranks a video's bbox sizes and decides with SSIM which boxes are kept or redundant; `plan.py` works out which whole frames a run drops; `runs.py` keeps the manifests and the purge log; `build.py` builds the pruned dataset; `guided.py` is the resumable per-video workflow; `review.py` chooses the frames to look at. `dataset.py`, `metrics.py`, `prompts.py` and `paths.py` hold the label-file, counting, terminal-prompt and output-folder helpers they share.
-- **`visualise/`**: everything drawn or laid out for people to look at; the packages below compute the results and call into it. `plots2d/` holds the frame-sized 2D graphs (`track_plots.py`: ground-truth and predicted 2D tracks; `reprojection.py`: 3D tracks projected back into each camera). `plots3d/scene.py` draws the 3D points and tracks with their overlays. `boxes/` draws bounding boxes (`yolo_dataset.py`: boxes on an image and random samples of a dataset, used by the tiling and dataset analysis steps to check the labels, and boxes outlined on matplotlib axes; `pruning.py`: the dataset pruning checks, sample frames of a bbox size rank and dropped frames next to the kept frame they matched; `video.py`: annotated videos of ground truth, detections and back-projected boxes). `charts/dataset.py` draws the dataset analysis: pie charts of a dataset's splits and videos, and its box position and size plots. `metrics/` lays the metrics out as text tables (`detection.py`: the 2D model reports, comparison and batch table; `tracking.py`: the 3D track summary and the 3D / 2D track evaluation; `dataset.py`: the dataset analysis report). `common.py` holds the colours and helpers they share.
-- **`detection/`**: the 2D detector. `training.py` builds the YOLO model (version, size, P2 head, pretrained weights) and runs Ultralytics training; the rest is its evaluation: detectors, metrics, saved predictions and their cache (`predictions.py`) and the evaluation pipeline.
-- **`tracking3d/`**: camera model (`camera.py`), cross-view matching and triangulation, run / camera loading, the factor graph (unguided and guided), evaluation, output files, loading past results and results from outside a run (`external.py`). `annotator/` is the start / end annotator of the guided tracks and its epipolar suggestions.
-- **`scene3d/`**: static arena objects for the 3D plots (their settings are the config's `arena_plotting` section). `fruit/` and `leaves/` each have `hsv/` (segmentation), `mesh/` (reconstruction and drawing) and `locate.py` (per-run glue and cache); `arena/` has `mesh/` and `locate.py` only, since nothing is segmented. `objects.py` bundles them for the plots, and `geometry.py`, `drawing.py`, `frames.py` and `settings.py` hold the code they share.
+| Folder | Holds |
+| --- | --- |
+| `pipeline/` | the `main_*.py` scripts, one folder per step. They only parse settings and call into the packages below. |
+| `configs/` | one config per pipeline stage, and the shared settings in `configs/shared/` |
+| `common/` | what every package below builds on: config loading, frames and datasets, YOLO dataset reading, track linking |
+| `dataset_tools/` | dataset creation, cleaning, conversion and pruning |
+| `detection/` | the 2D detector: training and evaluation |
+| `tracking3d/` | matching, triangulation, the factor graph, 3D evaluation and the guided-track annotator |
+| `scene3d/` | the static arena objects in the 3D plots: fruit, leaves and arena frame |
+| `visualise/` | everything drawn or laid out for people to look at: plots, boxes, charts and metric tables |
+
+<details>
+<summary>Per-file breakdown</summary>
+
+**`common/`** imports none of the other packages.
+
+- `config.py`: config loading
+- `datasets.py`: frames and datasets
+- `yolo_format.py`: reading YOLO datasets from disk
+- `linking.py`: the frame-to-frame track linker
+
+**`dataset_tools/`**
+
+- `tile.py`: tiles a full-frame dataset into training crops
+- `cvat.py`: rebuilds a dataset from a CVAT export and its video
+- `merge.py`: merges a folder of datasets into one without duplicate images
+- `stats.py`: computes the per-split statistics of a dataset (videos, images, instances, box sizes)
+- `convert_yolo_to_coco.py`, `convert_coco_to_yolo.py`: the YOLO -> COCO and COCO -> YOLO converters
+- `slice_videos.py`: cuts a time window out of a folder of videos
+- `prune/`: the dataset pruning (step 3)
+  - `redundancy.py`: ranks a video's bbox sizes and decides with SSIM which boxes are kept or redundant
+  - `plan.py`: works out which whole frames a run drops
+  - `runs.py`: keeps the manifests and the purge log
+  - `build.py`: builds the pruned dataset
+  - `guided.py`: the resumable per-video workflow
+  - `review.py`: chooses the frames to look at
+  - `dataset.py`, `metrics.py`, `prompts.py`, `paths.py`: the label-file, counting, terminal-prompt and output-folder helpers they share
+
+**`detection/`**
+
+- `training.py`: builds the YOLO model (version, size, P2 head, pretrained weights) and runs Ultralytics training
+- the rest is its evaluation: detectors, metrics, saved predictions and their cache (`predictions.py`) and the evaluation pipeline
+
+**`tracking3d/`**
+
+- `camera.py`: the camera model
+- cross-view matching and triangulation, run / camera loading, the factor graph (unguided and guided), evaluation, output files and loading past results
+- `external.py`: results from outside a run
+- `annotator/`: the start / end annotator of the guided tracks and its epipolar suggestions
+
+**`scene3d/`** (its settings are the config's `arena_plotting` section)
+
+- `fruit/`, `leaves/`: each has `hsv/` (segmentation), `mesh/` (reconstruction and drawing) and `locate.py` (per-run glue and cache)
+- `arena/`: `mesh/` and `locate.py` only, since nothing is segmented
+- `objects.py`: bundles them for the plots
+- `geometry.py`, `drawing.py`, `frames.py`, `settings.py`: the code they share
+
+**`visualise/`** The other packages compute the results and call into it.
+
+- `plots2d/`: the frame-sized 2D graphs
+  - `track_plots.py`: ground-truth and predicted 2D tracks
+  - `reprojection.py`: 3D tracks projected back into each camera
+- `plots3d/scene.py`: draws the 3D points and tracks with their overlays
+- `boxes/`: draws bounding boxes
+  - `yolo_dataset.py`: boxes on an image and random samples of a dataset, used by the tiling and dataset analysis steps to check the labels, and boxes outlined on matplotlib axes
+  - `pruning.py`: the dataset pruning checks, sample frames of a bbox size rank and dropped frames next to the kept frame they matched
+  - `video.py`: annotated videos of ground truth, detections and back-projected boxes
+- `charts/dataset.py`: the dataset analysis: pie charts of a dataset's splits and videos, and its box position and size plots
+- `metrics/`: lays the metrics out as text tables
+  - `detection.py`: the 2D model reports, comparison and batch table
+  - `tracking.py`: the 3D track summary and the 3D / 2D track evaluation
+  - `dataset.py`: the dataset analysis report
+- `common.py`: the colours and helpers they share
+
+</details>
