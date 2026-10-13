@@ -1,0 +1,22 @@
+{
+  "_example": true,
+  "_readme": "Image dataset tools template (pipeline step 1). Copy to image_dataset_config.json (project root), fill in the section of the script you want to run and delete the '_example' line. Each section belongs to one script, so the others can be left as they are. Relative paths are resolved against the folder this file is in.",
+
+  "reconstruct_cvat": {
+    "_readme": "Settings for main_reconstruct_cvat_dataset.py, which rebuilds a YOLO dataset from a CVAT export and its video. annotations_zip = the CVAT export (YOLO format) of the video task. video = the video that was annotated; a label's number is used as its frame index, so the task must have been made from this video with frame step 1. output_dir = where the dataset is written (images/train, labels/train, train.txt, data.yaml); it must not exist yet, or be empty. class_names = the classes in label order, e.g. [\"fly\"]; null = read them from the export. keep_empty = also keep frames whose label file is empty, as background images (false drops them).",
+    "annotations_zip": "path/to/cvat_export.zip",
+    "video": "path/to/video.mp4",
+    "output_dir": "path/to/dataset",
+    "class_names": null,
+    "keep_empty": false
+  },
+
+  "convert_format": {
+    "_readme": "Settings for main_convert_dataset_format.py. direction = 'yolo_to_coco' (needs fiftyone) or 'coco_to_yolo' (needs ultralytics). input_dir = the dataset to convert: for YOLO the folder holding data.yaml, for COCO the folder holding data/ and annotations/instances_<split>.json. output_dir = where the converted dataset is written; it must not exist yet, or be empty. splits = the splits to convert; null = every split found (coco_to_yolo only). copy_images = false symlinks the images instead of copying them.",
+    "direction": "yolo_to_coco",
+    "input_dir": "path/to/dataset",
+    "output_dir": "path/to/dataset_coco",
+    "splits": ["train", "val"],
+    "copy_images": true
+  }
+}

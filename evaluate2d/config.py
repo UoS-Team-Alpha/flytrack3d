@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-PATH_KEYS = {"images", "labels", "video", "inputs", "videos_dir", "data_yaml", "model_path", "config_path", "output_dir",
-             "p2_model_yaml", "weights_dir"}
+PATH_KEYS = {"images", "labels", "video", "inputs", "videos_dir", "annotations_zip", "input_dir", "data_yaml",
+             "model_path", "config_path", "output_dir", "p2_model_yaml", "weights_dir"}
 
 
 def resolve_paths(obj, base: Path):

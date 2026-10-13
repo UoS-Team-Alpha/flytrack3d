@@ -11,13 +11,15 @@ Tools for evaluating fly detectors (YOLO, optionally with SAHI slicing) and turn
 pip install -r requirements.txt
 cp config_examples/config.example.json config.json              # single dataset
 cp config_examples/config.batch.example.json config.batch.json  # or: a folder of videos + a folder of label folders
+cp config_examples/video_config.example.json video_config.json                  # step 0: video editing
+cp config_examples/image_dataset_config.example.json image_dataset_config.json  # step 1: image dataset editing
 ```
 
 Fill in your paths, models and camera calibration, then delete the `"_example"` line. The scripts refuse to run a config that still has it. Every config section has a `_readme` entry that explains its settings. Relative paths in a config are resolved against the folder the config is in.
 
 ## Scripts
 
-The scripts to run are the `main_*.py` files in `pipeline/`, grouped into numbered steps in the order you would normally use them. Each can be run from the IDE (edit its `SETTINGS` block and press Run) or from the command line, e.g. `python pipeline/step3_evaluation/main_evaluate2d.py`, where flags override those settings (`--help` lists them). They work from any working directory, and look for `config.json` / `video_config.json` in the project root. Each writes to a timestamped `output/run_<datetime>/` folder, or into the run folder it works on.
+The scripts to run are the `main_*.py` files in `pipeline/`, grouped into numbered steps in the order you would normally use them. Each can be run from the IDE (edit its `SETTINGS` block and press Run) or from the command line, e.g. `python pipeline/step3_evaluation/main_evaluate2d.py`, where flags override those settings (`--help` lists them). They work from any working directory and look for their config in the project root. Steps 0 and 1 each have their own config (`video_config.json` and `image_dataset_config.json`, with one section per script); steps 2 to 6 share `config.json`. Each writes to a timestamped `output/run_<datetime>/` folder, or into the run folder it works on.
 
 **Step 0: video editing** (`pipeline/step0_video_editing/`)
 
@@ -25,7 +27,8 @@ The scripts to run are the `main_*.py` files in `pipeline/`, grouped into number
 
 **Step 1: image dataset editing** (`pipeline/step1_image_dataset_editing/`) - more tools to come
 
-- **`main_convert_dataset_format.py`**: converts a detection dataset between the YOLO and COCO formats. `yolo_to_coco` (FiftyOne) turns a YOLO dataset folder (`data.yaml`, `images/`, `labels/`) into `data/` plus `annotations/instances_<split>.json`; `coco_to_yolo` (Ultralytics) turns that layout back into `images/<split>/`, `labels/<split>/` and a `data.yaml` ready for training. The input is never changed, and `--symlink` links the images instead of copying them. It takes no config and writes to the `--output` folder.
+- **`main_reconstruct_cvat_dataset.py`**: rebuilds a YOLO dataset from a CVAT annotation export (zip) and the video it was annotated on. CVAT exports the labels of a video task without the images, so this pulls the labelled frames out of the video and writes `images/train/`, `labels/train/`, `train.txt` and `data.yaml`. Only frames with annotations are kept unless `--keep-empty`. A label's number is used as the frame index in the video, so the task must have been made from that video with frame step 1. Its settings are the `reconstruct_cvat` section of `image_dataset_config.json`.
+- **`main_convert_dataset_format.py`**: converts a detection dataset between the YOLO and COCO formats. `yolo_to_coco` (FiftyOne) turns a YOLO dataset folder (`data.yaml`, `images/`, `labels/`) into `data/` plus `annotations/instances_<split>.json`; `coco_to_yolo` (Ultralytics) turns that layout back into `images/<split>/`, `labels/<split>/` and a `data.yaml` ready for training. The input is never changed, and `--symlink` links the images instead of copying them. Its settings are the `convert_format` section of `image_dataset_config.json`.
 
 **Step 2: YOLO training** (`pipeline/step2_training/`)
 
@@ -61,7 +64,7 @@ The fruit and leaves are fitted once per run and cached in `<run>/3d/fruit/` and
 ## Layout
 
 - **`pipeline/`**: the `main_*.py` scripts, one folder per step (see Scripts). They only parse settings and call into the packages below.
-- **`dataset_tools/`**: dataset creation, cleaning and conversion. `image_tools/conversion/` holds the YOLO -> COCO (`convert_yolo_to_coco.py`) and COCO -> YOLO (`convert_coco_to_yolo.py`) converters; `video_tools/slice_videos.py` cuts a time window out of a folder of videos.
+- **`dataset_tools/`**: dataset creation, cleaning and conversion. `image_tools/cvat/reconstruct_dataset.py` rebuilds a dataset from a CVAT export and its video; `image_tools/conversion/` holds the YOLO -> COCO (`convert_yolo_to_coco.py`) and COCO -> YOLO (`convert_coco_to_yolo.py`) converters; `video_tools/slice_videos.py` cuts a time window out of a folder of videos.
 - **`training/`**: building the YOLO model (version, size, P2 head, pretrained weights) and running Ultralytics training.
 - **`evaluate2d/`**: datasets, detectors, metrics, prediction caching and 2D visualisation.
 - **`tracking3d/`**: camera model and triangulation, run / camera loading, the factor graph (unguided and guided), evaluation, reports and 3D plots.
