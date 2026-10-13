@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-PATH_KEYS = {"images", "labels", "video", "inputs", "data_yaml", "model_path", "config_path", "output_dir",
+PATH_KEYS = {"images", "labels", "video", "inputs", "videos_dir", "data_yaml", "model_path", "config_path", "output_dir",
              "p2_model_yaml", "weights_dir"}
 
 
@@ -49,7 +49,8 @@ def load_config(path: str | Path) -> dict:
     raw = json.loads(config_path.read_text())
     if raw.get("_example"):
         raise SystemExit(f"{config_path.name} is a template and cannot be run.\n"
-                         f"Copy it to config.json, fill in your paths and remove the '_example' line.")
+                         f"Copy it to the project root (e.g. as {config_path.name.replace('.example', '')}), "
+                         f"fill in your paths and remove the '_example' line.")
     resolve_trained_runs(raw, config_path.parent)
     config = resolve_paths(raw, config_path.parent)
     config.setdefault("output_dir", str(config_path.parent / "output"))

@@ -1,0 +1,15 @@
+{
+  "_example": true,
+  "_readme": "Video tools template. Copy to video_config.json (project root), fill in your paths, delete the '_example' line and run: python main_slice_videos.py. Relative paths are resolved against the folder this file is in.",
+
+  "videos_dir": "path/to/videos",
+
+  "slice": {
+    "_readme": "Settings for main_slice_videos.py, which cuts the same time window out of every video in videos_dir. pattern = which files in videos_dir are videos (not searched recursively). start / end = the window, as HH:MM:SS (fractions allowed, e.g. 00:01:30.5) or seconds. output_dir = where the slices go, under the videos' own file names; null = <videos_dir>/sliced. overwrite = redo slices that already exist (false skips them). The cut is an ffmpeg stream copy (no re-encoding), which can only start on a keyframe, so a slice may begin slightly before start.",
+    "pattern": "*.mp4",
+    "start": "02:07:00",
+    "end": "02:08:00",
+    "output_dir": null,
+    "overwrite": false
+  }
+}

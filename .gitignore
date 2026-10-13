@@ -8,6 +8,7 @@ __pycache__/
 # Local configs (contain private paths) - config_examples/ holds the tracked templates
 /config.json
 /config.*.json
+/video_config.json
 
 # Evaluation outputs (predictions, metrics, videos; metadata contains local paths)
 output/

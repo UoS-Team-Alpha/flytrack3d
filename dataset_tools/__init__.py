@@ -1,4 +1,5 @@
-"""Dataset creation, cleaning and conversion (main_convert_dataset_format.py).
+"""Dataset creation, cleaning and conversion.
 
-    conversion/  convert a detection dataset between the YOLO and COCO formats
+    image_tools/  tools for image datasets (main_convert_dataset_format.py)
+    video_tools/  tools for videos (main_slice_videos.py)
 """

@@ -8,8 +8,8 @@
 The input dataset is never changed, and the output folder must not exist yet
 (or be empty). In Python, the two conversions are:
 
-    from dataset_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco
-    from dataset_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo
+    from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco
+    from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo
 
     coco_dir = convert_yolo_to_coco("datasets/flies", "datasets/flies_coco", splits=("train", "val"))
     data_yaml = convert_coco_to_yolo("datasets/flies_coco", "datasets/flies_yolo")
@@ -22,8 +22,8 @@ From the command line, flags override the settings:
 
 import argparse
 
-from dataset_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo
-from dataset_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco
+from dataset_tools.image_tools.conversion.convert_coco_to_yolo import convert_coco_to_yolo
+from dataset_tools.image_tools.conversion.convert_yolo_to_coco import convert_yolo_to_coco
 
 # ============================================================================ SETTINGS
 DIRECTION = "yolo_to_coco"         # "yolo_to_coco" or "coco_to_yolo"
