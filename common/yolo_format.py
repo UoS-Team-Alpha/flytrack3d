@@ -1,8 +1,14 @@
-"""Reading a YOLO detection dataset from disk: its split folders, images and label files."""
+"""Reading a YOLO detection dataset from disk: its split folders, images and label files.
+
+Label files are read either as they are written (read_yolo_boxes: normalised centre boxes)
+or as pixel corner boxes for an image of a known size (read_yolo_labels).
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import numpy as np
 
 IMAGE_SUFFIXES = (".jpg", ".png")
 
@@ -30,3 +36,21 @@ def read_yolo_boxes(label_path: str | Path) -> list[list[float]]:
         return []
     rows = (line.split() for line in label_path.read_text().splitlines())
     return [[float(v) for v in row] for row in rows if len(row) == 5]
+
+
+def read_yolo_labels(path: Path, width: int, height: int) -> np.ndarray:
+    """Read a YOLO txt file (class xc yc w h [conf]) into pixel xyxy."""
+    if not path.is_file():
+        return np.zeros((0, 5), dtype=np.float64)
+    rows = [ln.split() for ln in path.read_text().splitlines() if ln.strip()]
+    if not rows:
+        return np.zeros((0, 5), dtype=np.float64)
+    arr = np.array([[float(v) for v in r[:5]] for r in rows], dtype=np.float64)
+    cls, xc, yc, w, h = arr.T
+    return np.stack([
+        cls,
+        (xc - w / 2) * width,
+        (yc - h / 2) * height,
+        (xc + w / 2) * width,
+        (yc + h / 2) * height,
+    ], axis=1)

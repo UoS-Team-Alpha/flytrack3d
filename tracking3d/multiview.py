@@ -22,7 +22,8 @@ from pathlib import Path
 
 import numpy as np
 
-from common.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, read_yolo_labels, resolve_label_dir
+from common.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, resolve_label_dir
+from common.yolo_format import read_yolo_labels
 from evaluate2d.predictions import PRED_DIR
 from common.linking import link_tracks
 

@@ -49,9 +49,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .suggest import aligned, epipolar_polyline, suggest
+from common.datasets import IMAGE_EXTS
 
-IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
+from .suggest import aligned, epipolar_polyline, suggest
 
 # BGR
 BG = (32, 32, 32)

@@ -34,6 +34,8 @@ import yaml
 from PIL import Image
 from tqdm import tqdm
 
+from .yolo_format import read_yolo_labels
+
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".m4v", ".mpg", ".mpeg", ".wmv"}
 SPLIT_LISTS = {"train.txt", "val.txt", "valid.txt", "test.txt"}  # image lists, not labels
@@ -67,24 +69,6 @@ class Dataset:
 
 
 # ----------------------------------------------------------------------------- labels
-
-def read_yolo_labels(path: Path, width: int, height: int) -> np.ndarray:
-    """Read a YOLO txt file (class xc yc w h [conf]) into pixel xyxy."""
-    if not path.is_file():
-        return np.zeros((0, 5), dtype=np.float64)
-    rows = [ln.split() for ln in path.read_text().splitlines() if ln.strip()]
-    if not rows:
-        return np.zeros((0, 5), dtype=np.float64)
-    arr = np.array([[float(v) for v in r[:5]] for r in rows], dtype=np.float64)
-    cls, xc, yc, w, h = arr.T
-    return np.stack([
-        cls,
-        (xc - w / 2) * width,
-        (yc - h / 2) * height,
-        (xc + w / 2) * width,
-        (yc + h / 2) * height,
-    ], axis=1)
-
 
 def _has_label_files(d: Path) -> bool:
     return any(p.suffix == ".txt" and p.name not in SPLIT_LISTS for p in d.iterdir() if p.is_file())

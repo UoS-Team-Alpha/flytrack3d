@@ -30,7 +30,7 @@ import numpy as np
 import yaml
 from tqdm import tqdm
 
-from ..yolo_format import list_images, read_yolo_boxes, split_dirs
+from common.yolo_format import list_images, read_yolo_boxes, split_dirs
 
 
 @dataclass

@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from dataset_tools.image_tools.yolo_format import list_images, read_yolo_boxes, split_dirs
+from common.yolo_format import list_images, read_yolo_boxes, split_dirs
 
 GREEN = (0, 255, 0)   # BGR
 
