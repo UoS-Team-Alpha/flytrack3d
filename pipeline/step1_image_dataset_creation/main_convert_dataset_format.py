@@ -18,8 +18,8 @@ conversions are:
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings and the config:
-    python pipeline/step1_image_dataset_editing/main_convert_dataset_format.py --direction yolo_to_coco --input datasets/flies --output datasets/flies_coco
-    python pipeline/step1_image_dataset_editing/main_convert_dataset_format.py --direction coco_to_yolo --input datasets/flies_coco --output datasets/flies_yolo --symlink
+    python pipeline/step1_image_dataset_creation/main_convert_dataset_format.py --direction yolo_to_coco --input datasets/flies --output datasets/flies_coco
+    python pipeline/step1_image_dataset_creation/main_convert_dataset_format.py --direction coco_to_yolo --input datasets/flies_coco --output datasets/flies_yolo --symlink
 """
 
 import argparse

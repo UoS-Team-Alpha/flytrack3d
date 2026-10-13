@@ -14,9 +14,9 @@ Needs opencv.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings and the config:
-    python pipeline/step1_image_dataset_editing/main_reconstruct_cvat_dataset.py
-    python pipeline/step1_image_dataset_editing/main_reconstruct_cvat_dataset.py --annotations export.zip --video session1.mp4 --output datasets/session1
-    python pipeline/step1_image_dataset_editing/main_reconstruct_cvat_dataset.py --keep-empty --classes fly
+    python pipeline/step1_image_dataset_creation/main_reconstruct_cvat_dataset.py
+    python pipeline/step1_image_dataset_creation/main_reconstruct_cvat_dataset.py --annotations export.zip --video session1.mp4 --output datasets/session1
+    python pipeline/step1_image_dataset_creation/main_reconstruct_cvat_dataset.py --keep-empty --classes fly
 """
 
 import argparse

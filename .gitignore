@@ -10,6 +10,7 @@ __pycache__/
 /config.*.json
 /video_config.json
 /image_dataset_config.json
+/image_tiling_config.json
 
 # Evaluation outputs (predictions, metrics, videos; metadata contains local paths)
 output/

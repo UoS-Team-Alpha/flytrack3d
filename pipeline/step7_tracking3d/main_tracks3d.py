@@ -7,10 +7,10 @@ and "tracking3d" in config_examples/config.example.json for the settings.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings:
-    python pipeline/step6_tracking3d/main_tracks3d.py                     # pick a run from a list
-    python pipeline/step6_tracking3d/main_tracks3d.py --n-tracks 3        # keep the 3 best-supported tracks
-    python pipeline/step6_tracking3d/main_tracks3d.py --source gt         # build tracks from the ground-truth labels
-    python pipeline/step6_tracking3d/main_tracks3d.py --no-show
+    python pipeline/step7_tracking3d/main_tracks3d.py                     # pick a run from a list
+    python pipeline/step7_tracking3d/main_tracks3d.py --n-tracks 3        # keep the 3 best-supported tracks
+    python pipeline/step7_tracking3d/main_tracks3d.py --source gt         # build tracks from the ground-truth labels
+    python pipeline/step7_tracking3d/main_tracks3d.py --no-show
 
 Outputs go to a new folder per run, <run>/3d/<model or ground_truth>/factor_graph/tracks_<datetime>/:
     tracks_3d.csv            per-frame position, uncertainty and views of every track

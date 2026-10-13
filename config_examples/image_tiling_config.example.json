@@ -1,0 +1,24 @@
+{
+  "_example": true,
+  "_readme": "Image tiling template (pipeline step 2). Copy to image_tiling_config.json (project root), fill in your paths and delete the '_example' line. Relative paths are resolved against the folder this file is in.",
+
+  "tile": {
+    "_readme": "Settings for main_tile_dataset.py, which crops a full-frame YOLO dataset into small square tiles for training a detector used with sliced (SAHI) inference. input_dir = the full-frame dataset (images/<split> + labels/<split>, or <split>/images + <split>/labels; .jpg and .png images); it is never changed. output_dir = where the tiled dataset is written. splits = the splits to tile. dataset_fraction = the fraction of each split's images to tile (the first ones by file name), e.g. 0.1 for a quick test; 1.0 = all. crop_size = tile width and height in px; every image must be at least this size. empty_fraction = fraction of the images that also give an empty background tile (images without labels always give one); the empty tiles are spread evenly over a 3x3 grid of the frame. empty_tries = attempts per image at finding a tile with no object in it. A box cut by a tile's edge is kept (clipped) if at least min_visible_fraction of it is inside the tile, or min_visible_area px^2 is. seed = makes the random tile positions repeatable; null = different every run. overwrite = delete an existing output folder and tile again (false refuses). visualise = after tiling, open num_samples random tiles of 'split' with their boxes drawn, to check the labels (needs a display; press any key for the next).",
+    "input_dir": "path/to/full_frame_dataset",
+    "output_dir": "path/to/tiled_dataset",
+    "splits": ["train", "val"],
+    "dataset_fraction": 1.0,
+    "crop_size": 640,
+    "empty_fraction": 0.1,
+    "empty_tries": 10,
+    "min_visible_fraction": 0.25,
+    "min_visible_area": 12,
+    "seed": null,
+    "overwrite": false,
+    "visualise": {
+      "enabled": true,
+      "split": "train",
+      "num_samples": 5
+    }
+  }
+}

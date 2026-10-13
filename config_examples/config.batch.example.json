@@ -1,6 +1,6 @@
 {
   "_example": true,
-  "_readme": "Batch template. Copy to config.batch.json (project root), fill in your paths, delete the '_example' line and run: python pipeline/step3_evaluation/main_evaluate2d.py --config config.batch.json",
+  "_readme": "Batch template. Copy to config.batch.json (project root), fill in your paths, delete the '_example' line and run: python pipeline/step4_evaluation/main_evaluate2d.py --config config.batch.json",
 
   "output_dir": "output",
 

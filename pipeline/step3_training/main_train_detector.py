@@ -9,8 +9,8 @@ evaluate it, give the run name as a model's "model_path" in the config.
 
 From the IDE: edit the SETTINGS block below and press Run (or F5).
 From the command line, flags override the settings and the config:
-    python pipeline/step2_training/main_train_detector.py --gpu 1 --version 11 --p2
-    python pipeline/step2_training/main_train_detector.py --version 12 --size s --tag pruned
+    python pipeline/step3_training/main_train_detector.py --gpu 1 --version 11 --p2
+    python pipeline/step3_training/main_train_detector.py --version 12 --size s --tag pruned
 """
 
 import argparse
