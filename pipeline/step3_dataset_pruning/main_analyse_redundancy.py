@@ -40,7 +40,7 @@ from dataset_tools.prune.redundancy import analyse_bbox_duplicates  # noqa: E402
 from dataset_tools.prune.review import view_rank_grids  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "dataset_pruning_config.json"   # "analyse_redundancy" holds the dataset and the settings
+CONFIG_PATH = ROOT / "configs" / "dataset_pruning.json"   # "analyse_redundancy" holds the dataset and the settings
 INPUT_DIR = None           # the YOLO dataset to analyse (its folder or its data.yaml); None = the config's
 OUTPUT_DIR = None          # where the results are kept; None = the config's (output/pruned_datasets)
 REFRESH_METRICS = None     # True = count the dataset again instead of reading the saved metrics CSV; None = the config's
@@ -64,12 +64,12 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/dataset_pruning_config.example.json to dataset_pruning_config.json "
+                         f"Copy configs/dataset_pruning.example.json to configs/dataset_pruning.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "analyse_redundancy" not in config:
         raise SystemExit("config has no 'analyse_redundancy' section. "
-                         "See config_examples/dataset_pruning_config.example.json.")
+                         "See configs/dataset_pruning.example.json.")
     overrides = {"input_dir": args.input, "output_dir": args.output, "refresh_metrics": args.refresh_metrics}
     s = {**config["analyse_redundancy"], **{k: v for k, v in overrides.items() if v is not None}}
     grids = dict(s.get("grids") or {})

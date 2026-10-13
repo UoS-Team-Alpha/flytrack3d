@@ -34,7 +34,7 @@ from tracking3d.triangulate import MatchSettings, camera_baseline_report, triang
 from visualise.plots3d.scene import plot_points_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration) and optionally "tracking3d"
+CONFIG_PATH = ROOT / "configs" / "tracking.json"   # needs "cameras" (calibration) and optionally "tracking3d"
 RUN = None           # run folder name or path; None = choose in the terminal
 MODEL = None         # model in that run; None = the only one, or choose in the terminal
 SOURCE = "pred"      # "pred" = the run's predictions, "gt" = its ground-truth labels

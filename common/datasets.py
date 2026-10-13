@@ -3,7 +3,7 @@
 Every dataset is flattened into a list of `Frame`s. Each frame knows how to load
 its own RGB image and carries its ground truth in absolute pixel xyxy.
 
-Supported dataset types (see config.json):
+Supported dataset types (see configs/shared/detection_source.example.json):
   - "yolo_images": a folder of images (optionally nested per sequence) plus a
                    mirrored YOLO labels folder. Missing label file = no objects.
   - "video":       a video file plus a folder of per-frame YOLO label files

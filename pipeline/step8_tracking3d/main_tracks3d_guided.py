@@ -44,7 +44,7 @@ from visualise.plots2d.reprojection import save_reprojection_plots  # noqa: E402
 from visualise.plots3d.scene import plot_tracks_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration); "tracking3d" tunes the graph
+CONFIG_PATH = ROOT / "configs" / "tracking.json"   # needs "cameras" (calibration); "tracking3d" tunes the graph
 RUN = None           # run folder name or path; None = choose in the terminal
 MODEL = None         # model in that run; None = the only one, or choose in the terminal
 SOURCE = "pred"      # "pred" = the run's predictions, "gt" = its ground-truth labels

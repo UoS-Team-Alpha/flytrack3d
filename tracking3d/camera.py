@@ -1,6 +1,6 @@
 """The camera model and the multi-view geometry built on it.
 
-Camera conventions follow OpenCV (see "cameras" in config_examples/config.example.json):
+Camera conventions follow OpenCV (see configs/shared/cameras.example.json):
     matrix       3x3 intrinsics K
     distortions  k1 k2 p1 p2 [k3 [k4 k5 k6]] for "pinhole", k1 k2 k3 k4 for "fisheye"
     rotation     world -> camera, as a Rodrigues vector (3 values) or a 3x3 matrix

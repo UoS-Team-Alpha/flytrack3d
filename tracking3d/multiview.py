@@ -347,7 +347,7 @@ def open_session(config: dict, run: str | None, model: str | None, source: str,
     """Pick the run (interactive unless given), the model, and load every camera's detections."""
     cam_cfg = config.get("cameras") or {}
     if not cam_cfg.get("views"):
-        raise SystemExit("config has no 'cameras' -> 'views'. See config_examples/config.example.json.")
+        raise SystemExit("config has no 'cameras' -> 'views'. See configs/shared/cameras.example.json.")
     settings = tracking_settings(config)
     if conf_threshold is not None:
         settings["conf_threshold"] = conf_threshold

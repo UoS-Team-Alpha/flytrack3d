@@ -31,7 +31,7 @@ from common.config import load_config  # noqa: E402
 from visualise.boxes.yolo_dataset import show_dataset_samples  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "image_tiling_config.json"   # "tile" holds the dataset, output folder and tiling settings
+CONFIG_PATH = ROOT / "configs" / "image_tiling.json"   # "tile" holds the dataset, output folder and tiling settings
 INPUT_DIR = None           # the full-frame YOLO dataset to tile; None = the config's
 OUTPUT_DIR = None          # where the tiled dataset is written; None = the config's
 SPLITS = None              # splits to tile, e.g. ["train", "val"]; None = the config's
@@ -60,11 +60,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/image_tiling_config.example.json to image_tiling_config.json "
+                         f"Copy configs/image_tiling.example.json to configs/image_tiling.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "tile" not in config:
-        raise SystemExit("config has no 'tile' section. See config_examples/image_tiling_config.example.json.")
+        raise SystemExit("config has no 'tile' section. See configs/image_tiling.example.json.")
     overrides = {"input_dir": args.input, "output_dir": args.output, "splits": args.splits,
                  "dataset_fraction": args.fraction, "overwrite": args.overwrite}
     t = {**config["tile"], **{k: v for k, v in overrides.items() if v is not None}}

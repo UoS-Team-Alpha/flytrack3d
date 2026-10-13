@@ -1,6 +1,8 @@
 {
   "_example": true,
-  "_readme": "Image dataset tools template (pipeline step 1). Copy to image_dataset_config.json (project root), fill in the section of the script you want to run and delete the '_example' line. Each section belongs to one script, so the others can be left as they are. Relative paths are resolved against the folder this file is in.",
+  "_readme": "Image dataset tools template (pipeline step 1). Copy to image_dataset.json in this folder, fill in the section of the script you want to run and delete the '_example' line. Each section belongs to one script, so the others can be left as they are. Relative paths are resolved against the folder this file is in.",
+
+  "_include": ["shared/paths.json"],
 
   "reconstruct_cvat": {
     "_readme": "Settings for main_reconstruct_cvat_dataset.py, which rebuilds a YOLO dataset from a CVAT export and its video. annotations_zip = the CVAT export (YOLO format) of the video task. video = the video that was annotated; a label's number is used as its frame index, so the task must have been made from this video with frame step 1. output_dir = where the dataset is written (images/train, labels/train, train.txt, data.yaml); it must not exist yet, or be empty. class_names = the classes in label order, e.g. [\"fly\"]; null = read them from the export. keep_empty = also keep frames whose label file is empty, as background images (false drops them).",
@@ -32,7 +34,7 @@
 
   "analyse": {
     "_readme": "Settings for main_analyse_dataset.py, which reports what a YOLO dataset holds and never changes it. input_dir = the dataset, as its folder or its data.yaml (images/<split> + labels/<split>, or <split>/images + <split>/labels; .jpg and .png images, also in sub-folders of a split). splits = the splits to analyse; null = every one found of train, val, valid, validation and test. prefix_separator = what ends the video name in a frame's file name ('<video>_frame_000123.png'); frames named without it are grouped by their sub-folder of the split. show_plots = open the pie charts and the box plots (needs a display). save = write report.txt, summary.json, contents.png and boxes.png to output_dir; null = output/dataset_analysis/<dataset name>/, where an earlier report of the same dataset is replaced. samples = also open num_samples random images of 'split' with their boxes drawn (press any key for the next); split null = the first split analysed.",
-    "input_dir": "path/to/dataset",
+    "input_dir": "${pruned_dataset}",
     "splits": null,
     "prefix_separator": "_frame_",
     "show_plots": true,
@@ -47,7 +49,7 @@
 
   "check_bboxes": {
     "_readme": "Settings for main_check_bboxes.py, which opens random images of a YOLO dataset with their boxes drawn (press any key for the next) and never changes it. input_dir = the dataset, as its folder or its data.yaml. split = the split to take the images from; null = the first one found of train, val, valid, validation and test. num_samples = how many images to show. seed = a number shows the same images every run; null = different ones each time.",
-    "input_dir": "path/to/dataset",
+    "input_dir": "${pruned_dataset}",
     "split": null,
     "num_samples": 5,
     "seed": null

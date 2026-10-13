@@ -24,7 +24,7 @@ from common.config import load_config  # noqa: E402
 from detection.training import train_detector  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "config.json"   # "training" holds the dataset, model and training arguments
+CONFIG_PATH = ROOT / "configs" / "training.json"   # "training" holds the dataset, model and training arguments
 GPU = None                 # GPU id(s) to train on, e.g. 0 or [0, 1]; None = the config's
 VERSION = None             # YOLO version, e.g. 11 or 12; None = the config's
 SIZE = None                # model size: "n", "s", "m", "l" or "x"; None = the config's

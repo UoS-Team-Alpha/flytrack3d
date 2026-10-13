@@ -1,0 +1,33 @@
+{
+  "_example": true,
+
+  "_readme": "Template only. Copy to detection.json in this folder, fill it in and delete the '_example' line; the main_*.py scripts refuse to run a config that still has it. Steps 5 and 6 (main_evaluate2d.py, main_inference2d.py): the models to run. What they run on (the detection source), the metric settings and the training settings come from the files in \"_include\" (paths relative to this folder; a key set here wins over an included one). For a second set-up, copy this file under another name and pass it with --config.",
+
+  "_include": ["shared/detection_source.json", "shared/evaluation.json", "training.json"],
+
+  "models": [
+    {
+      "name": "my_yolo_sahi",
+      "enabled": true,
+      "type": "sahi",
+      "model_type": "ultralytics",
+      "model_path": "path/to/weights/best.pt",
+      "confidence_threshold": 0.25,
+      "device": "cuda:0",
+      "slice_height": 640,
+      "slice_width": 640,
+      "overlap_height_ratio": 0.2,
+      "overlap_width_ratio": 0.2,
+      "batch_size": 12
+    },
+    {
+      "name": "my_yolo_fullframe",
+      "enabled": false,
+      "type": "ultralytics",
+      "model_path": "path/to/weights/best.pt",
+      "confidence_threshold": 0.25,
+      "device": "cuda:0",
+      "image_size": 640
+    }
+  ]
+}

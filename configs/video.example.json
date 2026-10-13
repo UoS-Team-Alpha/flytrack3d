@@ -1,6 +1,6 @@
 {
   "_example": true,
-  "_readme": "Video tools template. Copy to video_config.json (project root), fill in your paths, delete the '_example' line and run: python pipeline/step0_video_editing/main_slice_videos.py. Relative paths are resolved against the folder this file is in.",
+  "_readme": "Video tools template. Copy to video.json in this folder, fill in your paths, delete the '_example' line and run: python pipeline/step0_video_editing/main_slice_videos.py. Relative paths are resolved against the folder this file is in.",
 
   "videos_dir": "path/to/videos",
 

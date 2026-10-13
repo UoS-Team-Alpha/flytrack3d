@@ -1,0 +1,11 @@
+{
+  "_example": true,
+
+  "_readme": "Template only. Copy to paths.json in this folder, fill it in and delete the '_example' line; the main_*.py scripts refuse to run a config that still has it. Shared: the folders that several configs point at, set once. A config that has this file in its \"_include\" can write \"${name}\" anywhere in a setting, e.g. \"data_yaml\": \"${pruned_dataset}/data.yaml\". The names are yours to choose: add, rename or remove entries freely. An entry may use another one (\"${datasets_root}/my_dataset\"), and a relative path is resolved against the folder this file is in.",
+
+  "paths": {
+    "full_dataset": "path/to/full_dataset",
+    "pruned_dataset": "path/to/pruned_dataset",
+    "session_videos": "path/to/videos"
+  }
+}

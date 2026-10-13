@@ -30,7 +30,7 @@ from dataset_tools.cvat import reconstruct_cvat_dataset  # noqa: E402
 from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "image_dataset_config.json"   # "reconstruct_cvat" holds the zip, video and output folder
+CONFIG_PATH = ROOT / "configs" / "image_dataset.json"   # "reconstruct_cvat" holds the zip, video and output folder
 ANNOTATIONS_ZIP = None     # the CVAT export (YOLO format) of the video task; None = the config's
 VIDEO = None               # the video that was annotated; None = the config's
 OUTPUT_DIR = None          # where the dataset is written, must not exist yet; None = the config's
@@ -53,11 +53,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/image_dataset_config.example.json to image_dataset_config.json "
+                         f"Copy configs/image_dataset.example.json to configs/image_dataset.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "reconstruct_cvat" not in config:
-        raise SystemExit("config has no 'reconstruct_cvat' section. See config_examples/image_dataset_config.example.json.")
+        raise SystemExit("config has no 'reconstruct_cvat' section. See configs/image_dataset.example.json.")
     overrides = {"annotations_zip": args.annotations, "video": args.video, "output_dir": args.output,
                  "class_names": args.classes, "keep_empty": args.keep_empty}
     s = {**config["reconstruct_cvat"], **{k: v for k, v in overrides.items() if v is not None}}

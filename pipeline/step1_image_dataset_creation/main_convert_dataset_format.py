@@ -34,7 +34,7 @@ from dataset_tools.convert_yolo_to_coco import convert_yolo_to_coco  # noqa: E40
 from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "image_dataset_config.json"   # "convert_format" holds the direction, dataset and output folder
+CONFIG_PATH = ROOT / "configs" / "image_dataset.json"   # "convert_format" holds the direction, dataset and output folder
 DIRECTION = None           # "yolo_to_coco" or "coco_to_yolo"; None = the config's
 INPUT_DIR = None           # the dataset to convert (YOLO: the folder holding data.yaml); None = the config's
 OUTPUT_DIR = None          # where the converted dataset is written, must not exist yet; None = the config's
@@ -57,11 +57,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/image_dataset_config.example.json to image_dataset_config.json "
+                         f"Copy configs/image_dataset.example.json to configs/image_dataset.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "convert_format" not in config:
-        raise SystemExit("config has no 'convert_format' section. See config_examples/image_dataset_config.example.json.")
+        raise SystemExit("config has no 'convert_format' section. See configs/image_dataset.example.json.")
     overrides = {"direction": args.direction, "input_dir": args.input, "output_dir": args.output,
                  "splits": args.splits, "copy_images": None if args.symlink is None else not args.symlink}
     s = {**config["convert_format"], **{k: v for k, v in overrides.items() if v is not None}}

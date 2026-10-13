@@ -1,9 +1,9 @@
 """Show the interactive (rotatable) 3D plot of points or labels that come without their run.
 
 main_visualise_past_3d.py needs the run folder a result was made in. This script needs only
-the files themselves and its own config, external_points_config.json (template:
-config_examples/external_points_config.example.json), which holds the inputs, the calibration
-("cameras") and the few tracking3d / arena_plotting settings it uses; config.json is not read.
+the files themselves and its own config, configs/external_points.json (template:
+configs/external_points.example.json), which holds the inputs and includes the shared calibration
+("cameras") and tracking3d / arena_plotting settings from configs/shared/.
 Give it one of ("inputs" in the config, or the flags below):
 
 - a csv of 3D positions (--csv): a points.csv of main_points3d.py, a tracks_3d.csv of
@@ -50,7 +50,7 @@ from tracking3d.multiview import tracking_settings, views_summary  # noqa: E402
 from visualise.plots3d.scene import plot_points_3d, plot_tracks_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "external_points_config.json"   # "inputs", "cameras", "tracking3d", "arena_plotting"
+CONFIG_PATH = ROOT / "configs" / "external_points.json"   # "inputs", "cameras", "tracking3d", "arena_plotting"
 # None = the value in the config's "inputs". Setting any of the first three replaces all three.
 CSV = None           # a points.csv / tracks_3d.csv
 LABELS = None        # folder of predicted YOLO labels, one sub-folder per camera
@@ -85,8 +85,8 @@ def main():
     args = parser.parse_args()
 
     if not Path(args.config).is_file():
-        raise SystemExit(f"Config not found: {args.config}\nCopy config_examples/external_points_config.example.json "
-                         f"to external_points_config.json and fill it in.")
+        raise SystemExit(f"Config not found: {args.config}\nCopy configs/external_points.example.json "
+                         f"to configs/external_points.json and fill it in.")
     config = load_config(args.config)
     inputs = {k: v for k, v in (config.get("inputs") or {}).items() if not k.startswith("_")}
     what = ("csv", "labels", "fg_labels")
@@ -107,7 +107,7 @@ def main():
         raise SystemExit(f"csv not found: {csv_path}")
     cam_cfg = config.get("cameras") or {}
     if not cam_cfg.get("views"):
-        raise SystemExit("config has no 'cameras' -> 'views'. See config_examples/external_points_config.example.json.")
+        raise SystemExit("config has no 'cameras' -> 'views'. See configs/shared/cameras.example.json.")
     s = tracking_settings(config)
     if args.conf is not None:
         s["conf_threshold"] = args.conf

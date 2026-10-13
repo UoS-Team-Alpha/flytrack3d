@@ -33,7 +33,7 @@ from common.config import load_config  # noqa: E402
 from dataset_tools.merge import merge_datasets  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "image_dataset_config.json"   # "merge" holds the folders and what to keep
+CONFIG_PATH = ROOT / "configs" / "image_dataset.json"   # "merge" holds the folders and what to keep
 INPUT_DIR = None           # the folder holding the datasets to merge, one per sub-folder; None = the config's
 OUTPUT_DIR = None          # the merged dataset; may exist already, it is then added to; None = the config's
 SPLITS = None              # the splits to merge, e.g. ["train"]; None = the config's
@@ -59,11 +59,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/image_dataset_config.example.json to image_dataset_config.json "
+                         f"Copy configs/image_dataset.example.json to configs/image_dataset.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "merge" not in config:
-        raise SystemExit("config has no 'merge' section. See config_examples/image_dataset_config.example.json.")
+        raise SystemExit("config has no 'merge' section. See configs/image_dataset.example.json.")
     overrides = {"input_dir": args.input, "output_dir": args.output, "splits": args.splits,
                  "keep_classes": args.keep_classes, "class_names": args.class_names, "keep_empty": args.keep_empty}
     s = {**config["merge"], **{k: v for k, v in overrides.items() if v is not None}}

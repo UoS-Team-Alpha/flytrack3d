@@ -42,7 +42,7 @@ from visualise.common import safe_name  # noqa: E402
 from visualise.metrics.dataset import format_dataset_report  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "image_dataset_config.json"   # "analyse" holds the dataset and what to show
+CONFIG_PATH = ROOT / "configs" / "image_dataset.json"   # "analyse" holds the dataset and what to show
 INPUT_DIR = None           # the YOLO dataset to analyse (its folder or its data.yaml); None = the config's
 SPLITS = None              # splits to analyse, e.g. ["train", "val"]; None = the config's
 SHOW_PLOTS = None          # False = do not open the figures (they are still saved); None = the config's
@@ -66,11 +66,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/image_dataset_config.example.json to image_dataset_config.json "
+                         f"Copy configs/image_dataset.example.json to configs/image_dataset.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "analyse" not in config:
-        raise SystemExit("config has no 'analyse' section. See config_examples/image_dataset_config.example.json.")
+        raise SystemExit("config has no 'analyse' section. See configs/image_dataset.example.json.")
     overrides = {"input_dir": args.input, "splits": args.splits, "show_plots": args.show, "save": args.save}
     s = {**config["analyse"], **{k: v for k, v in overrides.items() if v is not None}}
     samples = dict(s.get("samples") or {})

@@ -59,7 +59,7 @@ def build_model(t: dict, weights_dir: Path):
 def train_detector(config: dict, overrides: dict | None = None) -> Path:
     """Train the model described by config["training"] (keys in overrides win). Returns the run folder."""
     if "training" not in config:
-        raise SystemExit("config has no 'training' section. See config_examples/config.example.json.")
+        raise SystemExit("config has no 'training' section. See configs/training.example.json.")
     t = {**config["training"], **{k: v for k, v in (overrides or {}).items() if v is not None}}
     data_yaml = Path(t.get("data_yaml") or "")
     if not data_yaml.is_file():

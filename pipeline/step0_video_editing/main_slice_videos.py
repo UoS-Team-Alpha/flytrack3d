@@ -22,7 +22,7 @@ from dataset_tools.slice_videos import slice_videos  # noqa: E402
 from common.config import load_config  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "video_config.json"   # "videos_dir" and "slice" hold the folder and the window
+CONFIG_PATH = ROOT / "configs" / "video.json"   # "videos_dir" and "slice" hold the folder and the window
 VIDEOS_DIR = None          # folder of videos to slice; None = the config's
 START = None               # start of the window, e.g. "02:07:00" or seconds; None = the config's
 END = None                 # end of the window, e.g. "02:08:00"; None = the config's
@@ -44,10 +44,10 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/video_config.example.json to video_config.json and fill it in.")
+                         f"Copy configs/video.example.json to configs/video.json and fill it in.")
     config = load_config(args.config)
     if "slice" not in config:
-        raise SystemExit("config has no 'slice' section. See config_examples/video_config.example.json.")
+        raise SystemExit("config has no 'slice' section. See configs/video.example.json.")
     s = config["slice"]
     overrides = {"start": args.start, "end": args.end, "output_dir": args.output, "overwrite": args.overwrite}
     s = {**s, **{k: v for k, v in overrides.items() if v is not None}}

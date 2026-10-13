@@ -46,7 +46,7 @@ from dataset_tools.prune.paths import set_output_dir  # noqa: E402
 from dataset_tools.prune.review import review_prune_manifest  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "dataset_pruning_config.json"   # "guided_prune" holds the dataset and the pruning settings
+CONFIG_PATH = ROOT / "configs" / "dataset_pruning.json"   # "guided_prune" holds the dataset and the pruning settings
 INPUT_DIR = None           # the YOLO dataset to prune (its folder or its data.yaml); None = the config's
 OUTPUT_DIR = None          # where the pruned datasets are built; None = the config's (output/pruned_datasets)
 SPLITS = None              # splits offered for pruning, e.g. ["train"]; None = the config's
@@ -75,11 +75,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/dataset_pruning_config.example.json to dataset_pruning_config.json "
+                         f"Copy configs/dataset_pruning.example.json to configs/dataset_pruning.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "guided_prune" not in config:
-        raise SystemExit("config has no 'guided_prune' section. See config_examples/dataset_pruning_config.example.json.")
+        raise SystemExit("config has no 'guided_prune' section. See configs/dataset_pruning.example.json.")
     overrides = {"input_dir": args.input, "output_dir": args.output, "splits": args.splits, "prefixes": args.prefixes}
     s = {**config["guided_prune"], **{k: v for k, v in overrides.items() if v is not None}}
     grids = dict(s.get("grids") or {})

@@ -24,7 +24,7 @@ from common.yolo_format import find_splits  # noqa: E402
 from visualise.boxes.yolo_dataset import show_dataset_samples  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "image_dataset_config.json"   # "check_bboxes" holds the dataset and what to show
+CONFIG_PATH = ROOT / "configs" / "image_dataset.json"   # "check_bboxes" holds the dataset and what to show
 INPUT_DIR = None           # the YOLO dataset to check (its folder or its data.yaml); None = the config's
 SPLIT = None               # the split to take the images from, e.g. "val"; None = the config's
 NUM_SAMPLES = None         # how many images to show; None = the config's
@@ -43,11 +43,11 @@ def main():
 
     if not Path(args.config).is_file():
         raise SystemExit(f"Config not found: {args.config}\n"
-                         f"Copy config_examples/image_dataset_config.example.json to image_dataset_config.json "
+                         f"Copy configs/image_dataset.example.json to configs/image_dataset.json "
                          f"and fill it in.")
     config = load_config(args.config)
     if "check_bboxes" not in config:
-        raise SystemExit("config has no 'check_bboxes' section. See config_examples/image_dataset_config.example.json.")
+        raise SystemExit("config has no 'check_bboxes' section. See configs/image_dataset.example.json.")
     overrides = {"input_dir": args.input, "split": args.split, "num_samples": args.num_samples, "seed": args.seed}
     s = {**config["check_bboxes"], **{k: v for k, v in overrides.items() if v is not None}}
 

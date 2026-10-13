@@ -1,0 +1,19 @@
+{
+  "_example": true,
+
+  "_readme": "Template only. Copy to external_points.json in this folder, fill it in and delete the '_example' line; the main_*.py scripts refuse to run a config that still has it. Step 9 (main_visualise_external_points.py): the files to draw. The calibration and the tracking3d / arena_plotting settings come from the shared files in \"_include\" (a csv must have been made with that calibration, or it will not line up with the cameras). Relative paths are resolved against the folder this file is in.",
+
+  "_include": ["shared/paths.json", "shared/cameras.json", "shared/tracking3d.json", "shared/arena_plotting.json"],
+
+  "inputs": {
+    "_readme": "What main_visualise_external_points.py draws. Give either csv, or labels and / or fg_labels (leave the others null). csv = a points.csv (main_points3d.py), a tracks_3d.csv (main_tracks3d*.py) or any csv with frame, x, y, z columns (plus n_views and / or track); one with a track column is drawn as tracks, any other as points coloured by frame. labels = the detector's YOLO predictions, fg_labels = the boxes the factor graph inserted (<result>/reprojection/labels): each a folder with one sub-folder per camera, whose name contains the camera's name (or its 'match' string), holding one .txt per frame anywhere below it ('class xc yc w h [conf]', frame number = the digits ending the file name). A run folder with one model works as labels. They are pooled, shifted by each camera's frame_offset, and matched and triangulated with the tracking3d settings below. videos = a folder with one video (or folder of frames) per camera, named after it; only needed for the fruit, leaves and arena frame, which are found in the images (null = not drawn). link = labels only: also link the triangulated points into tracks (no factor graph). arena = draw the arena objects (needs videos). save = also save the plot to this .png (null = only show it). show = open the interactive window.",
+    "csv": "path/to/points.csv",
+    "labels": null,
+    "fg_labels": null,
+    "videos": "${session_videos}",
+    "link": false,
+    "arena": true,
+    "save": null,
+    "show": true
+  }
+}

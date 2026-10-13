@@ -27,7 +27,7 @@ from common.config import load_config  # noqa: E402
 from detection.evaluate_models import run_inference_only  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "config.json"   # models; "dataset" gives the inputs unless INPUTS is set
+CONFIG_PATH = ROOT / "configs" / "detection.json"   # models; "dataset" gives the inputs unless INPUTS is set
 INPUTS = None              # folder of videos / frame folders; None = the config's dataset
 MODELS = None              # e.g. ["yolo_s_12_base_sahi"]; None = models with "enabled": true in config
 FORCE_INFERENCE = False    # True = ignore cached predictions and re-run the detector

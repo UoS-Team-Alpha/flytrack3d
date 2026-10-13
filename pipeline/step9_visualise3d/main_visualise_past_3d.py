@@ -39,7 +39,7 @@ from tracking3d.triangulate import MatchSettings, triangulate_session  # noqa: E
 from visualise.plots3d.scene import plot_points_3d, plot_tracks_3d, use_interactive_backend  # noqa: E402
 
 # ============================================================================ SETTINGS
-CONFIG_PATH = ROOT / "config.json"   # needs "cameras" (calibration)
+CONFIG_PATH = ROOT / "configs" / "tracking.json"   # needs "cameras" (calibration)
 RUN = None           # run folder name or path; None = choose in the terminal
 MODEL = None         # whose results: a model in that run or "ground_truth"; None = the only one, or choose
 KIND = None          # "points", "tracks" (unguided) or "guided"; None = choose in the terminal
