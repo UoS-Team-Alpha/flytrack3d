@@ -33,5 +33,13 @@
       "split": null,
       "num_samples": 5
     }
+  },
+
+  "check_bboxes": {
+    "_readme": "Settings for main_check_bboxes.py, which opens random images of a YOLO dataset with their boxes drawn (press any key for the next) and never changes it. input_dir = the dataset, as its folder or its data.yaml. split = the split to take the images from; null = the first one found of train, val, valid, validation and test. num_samples = how many images to show. seed = a number shows the same images every run; null = different ones each time.",
+    "input_dir": "path/to/dataset",
+    "split": null,
+    "num_samples": 5,
+    "seed": null
   }
 }

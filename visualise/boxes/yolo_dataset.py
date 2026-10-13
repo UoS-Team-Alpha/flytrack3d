@@ -64,7 +64,8 @@ def zoom_to_box(ax, image_path: str | Path, box, context: float = 4, min_px: flo
 
 def show_dataset_samples(dataset_dir: str | Path, split: str = "train", num_samples: int = 5,
                          class_names: dict | list | None = None, seed: int | None = None) -> None:
-    """Open random images of a split one at a time, with their boxes drawn (any key = next image)."""
+    """Open random images of a split one at a time, with their boxes drawn (any key or closing
+    the window = next image, q or Esc = stop)."""
     import cv2
 
     image_dir, label_dir = split_dirs(dataset_dir, split)
@@ -74,7 +75,7 @@ def show_dataset_samples(dataset_dir: str | Path, split: str = "train", num_samp
         return
 
     samples = random.Random(seed).sample(image_paths, min(num_samples, len(image_paths)))
-    print(f"\nShowing {len(samples)} sample images of the '{split}' split (press any key on the window for the next)...")
+    print(f"\nShowing {len(samples)} sample images of the '{split}' split (press any key on the window or close it for the next, q or Esc to stop)...")
     for image_path in samples:
         image = cv2.imread(str(image_path))
         if image is None:
@@ -84,6 +85,22 @@ def show_dataset_samples(dataset_dir: str | Path, split: str = "train", num_samp
         title = f"{image_path.stem} | Boxes: {len(boxes)}"
         print(f"Showing: {title}")
         cv2.imshow(title, draw_yolo_boxes(image, boxes, class_names))
-        cv2.waitKey(0)
-        cv2.destroyWindow(title)
+        key = _wait_key_or_close(title)
+        if key in (ord("q"), 27):   # q or Esc
+            break
     cv2.destroyAllWindows()
+
+
+def _wait_key_or_close(title: str) -> int:
+    """Wait until a key is pressed on an OpenCV window or the window is closed, then close it.
+    Returns the key, or -1 if the window was closed (cv2.waitKey(0) alone would then wait forever)."""
+    import cv2
+
+    key = -1
+    try:
+        while key == -1 and cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) >= 1:
+            key = cv2.waitKey(50)
+        cv2.destroyWindow(title)
+    except cv2.error:   # the window is already gone
+        pass
+    return key & 0xFF if key != -1 else -1
