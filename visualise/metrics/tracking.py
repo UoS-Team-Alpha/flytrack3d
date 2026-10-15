@@ -72,28 +72,119 @@ def format_3d(r: dict) -> str:
     return "\n".join(lines)
 
 
-def format_2d(r: dict, data: list, score: float) -> str:
-    """data: tracking3d.evaluate.ViewData per view (only its conf is used)."""
+CENTRE_ROWS = {   # point set -> its sub-rows: (tag, label)
+    "detector": [],
+    "+ factor graph": [("inserted", "from factor graph")],   # its detector boxes are the detector row's
+    "tracked detections": [],
+    "track reprojection": [("observed", "frames with a detection"), ("bridged", "frames bridged")],
+}
+
+
+def _centre_rows(view: str, by_set: dict, width: int, size: bool) -> list[str]:
+    """Rows of the centre-error table (size=False) or the size-error table (size=True, box sets only)."""
+    rows = []
+    for name, res in by_set.items():
+        if size and name == "track reprojection":
+            continue   # points, not boxes
+        for tag, label in [("all", name)] + [(t, "  " + lab) for t, lab in CENTRE_ROWS[name]]:
+            st = res.get(tag, {"points": 0, "matched": 0, "precision": None})
+            row = f"  {view if not rows else '':<{width}}{label:<26}{st['points']:>7}{st['matched']:>8}"
+            if size:
+                if st["matched"]:
+                    row += (f"{st['iou_mean']:>9.3f}{100 * st['size_err_median']:>15.1f}%{100 * st['size_err_p95']:>8.1f}%"
+                            f"{100 * st['size_bias_median']:>+9.1f}%")
+            else:
+                recall = fmt(st["recall"]) if tag == "all" and st.get("recall") is not None else "    - "
+                prec = fmt(st["precision"]) if st["precision"] is not None else "  n/a "
+                row += f"{recall:>9}{prec:>11}"
+                if st["matched"]:
+                    row += "".join(f"{st[k]:>8.2f}" for k in ("rmse", "mean", "median", "p95", "max"))
+            rows.append(row)
+    return rows
+
+
+def format_2d(r: dict, data: list, score: float, track_conf: float | None, centres: dict | None = None,
+              gate_px: float | None = None) -> str:
+    """data: tracking3d.evaluate.ViewData per view (only its conf is used); track_conf: tracking3d.conf_threshold;
+    centres: tracking3d.evaluate.centre_errors (matched within gate_px)."""
     first = r["ALL (pooled)"]["detector"]
-    pr_key = pr_iou_key(first)
-    tag = pr_key.replace("IoU@", "@")
-    maps = list(first["mAP"])
+    pr_keys = list(first["precision_recall"])
+    pr_keys.sort(key=lambda k: k != pr_iou_key(first))   # the headline IoU first, the others after it
     width = max(len(n) for n in r) + 2
+    conf = data[0].conf
+    tags = [k.replace("IoU@", "@") for k in pr_keys]
     lines = ["2D evaluation with the factor-graph tracks projected back into each camera", "",
-             f"  detector       : the saved predictions (as main_evaluate2d.py scored them)",
+             f"  detector       : the 2D detector alone (YOLO): its saved predictions, as main_evaluate2d.py scored them",
              f"  + factor graph : plus a box wherever a track has no detection in that view (score {score:g})",
-             f"  on tracks only : only the predictions a track used, plus those boxes",
-             f"  P / R / F1 at conf {data[0].conf:g}; all sizes", "",
-             f"  {'view':<{width}}{'predictions':<16}{'boxes':>7}{'P' + tag:>9}{'R' + tag:>9}{'F1' + tag:>9}"
-             + "".join(f"{m.replace('mAP', ''):>10}" for m in maps)]
+             f"  on tracks only : only the predictions a track used "
+             f"({'every saved box' if track_conf is None else f'conf >= {track_conf:g}'}, tracking3d.conf_threshold), "
+             f"plus those boxes",
+             f"  Compare the rows of a view to see what the factor graph adds to the detector.", ""]
+
+    # ---- 1. detection: P/R/F1 at the headline IoU in full, the other IoUs alongside
+    head, rest = pr_keys[0], pr_keys[1:]
+    lines += [f"  1. Detection: boxes matched to the ground truth by IoU (COCO matching), at conf >= {conf:g} "
+              f"(evaluation.pr_conf_threshold); all sizes",
+              f"  {'view':<{width}}{'predictions':<16}{'boxes':>7}{'P' + tags[0]:>9}{'R' + tags[0]:>9}{'F1' + tags[0]:>9}"
+              f"{'TP':>7}{'FP':>7}{'FN':>7}" + "".join(f"{'P' + t:>9}{'R' + t:>9}{'F1' + t:>9}" for t in tags[1:])]
     for view, by_variant in r.items():
         for i, (name, res) in enumerate(by_variant.items()):
-            at = res["precision_recall"][pr_key]["at_conf"]
-            lines.append(f"  {view if i == 0 else '':<{width}}{name:<16}{res['boxes']:>7}{fmt(at['precision']):>9}"
-                         f"{fmt(at['recall']):>9}{fmt(at['f1']):>9}"
-                         + "".join(f"{fmt(res['mAP'][m]['all']):>10}" for m in maps))
+            at = res["precision_recall"][head]["at_conf"]
+            row = (f"  {view if i == 0 else '':<{width}}{name:<16}{res['boxes']:>7}{fmt(at['precision']):>9}"
+                   f"{fmt(at['recall']):>9}{fmt(at['f1']):>9}{at['tp']:>7}{at['fp']:>7}{at['fn']:>7}")
+            for k in rest:
+                o = res["precision_recall"][k]["at_conf"]
+                row += f"{fmt(o['precision']):>9}{fmt(o['recall']):>9}{fmt(o['f1']):>9}"
+            lines.append(row)
         lines.append("")
-    if score < data[0].conf:
-        lines.append(f"  NOTE: backproj_score {score:g} is below the P/R confidence {data[0].conf:g}, so inserted "
-                     f"boxes only count towards mAP.")
-    return "\n".join(lines)
+    if rest:
+        lines += [f"  The {', '.join(tags[1:])} columns are more lenient: the gap to {tags[0]} counts the boxes that sit on",
+                  f"  the fly but with a poor size or shape. TP / FP / FN at every IoU are in evaluation.json.", ""]
+
+    if centres:
+        # ---- 2. centre error: position only
+        n_gt = centres["ALL (pooled)"]["detector"]["gt"]
+        lines += [f"  2. Centre error (position): each point set matched one-to-one to the ground-truth box centres of",
+                  f"  every frame by distance (Hungarian, within {gate_px:g} px, tracking3d.eval_match_px); no IoU, box size",
+                  f"  or ranking, so the rows compare directly:",
+                  f"    detector           : the detector's box centres (conf >= {conf:g})",
+                  f"    + factor graph     : plus the centres of the inserted boxes (indented: those alone)",
+                  f"    tracked detections : the raw detector boxes the tracks were built from",
+                  f"    track reprojection : the tracks themselves, projected into every frame: where the track has a",
+                  f"                         detection in that view, and where it bridged a gap (the 2D counterpart of",
+                  f"                         evaluation_3d.txt, against the labels instead of triangulated ground truth)",
+                  f"  'tracked detections' vs 'frames with a detection' = the same flies in the same frames, raw",
+                  f"  detector vs the factor graph's smoothed position.",
+                  f"  recall = ground-truth centres matched / all ({n_gt} pooled); precision = points matched / points.",
+                  f"  Distances (raw image px) are of the matched points only.",
+                  f"  {'view':<{width}}{'points':<26}{'n':>7}{'matched':>8}{'recall':>9}{'precision':>11}"
+                  f"{'RMSE':>8}{'mean':>8}{'median':>8}{'p95':>8}{'max':>8}"]
+        for view, by_set in centres.items():
+            lines += _centre_rows(view, by_set, width, size=False) + [""]
+
+        # ---- 3. size error: the boxes matched in 2
+        lines += [f"  3. Box size: the boxes matched in 2 against their ground-truth box. Box scale = sqrt(w * h);",
+                  f"  size error = |predicted / true scale - 1|; bias = median of (predicted / true - 1), + = too large.",
+                  f"  The inserted boxes take their size from the track's own detections in that view, scaled by depth.",
+                  f"  {'view':<{width}}{'boxes':<26}{'n':>7}{'matched':>8}{'IoU mean':>9}"
+                  f"{'size err median':>16}{'p95':>9}{'bias':>10}"]
+        for view, by_set in centres.items():
+            lines += _centre_rows(view, by_set, width, size=True) + [""]
+
+    # ---- 4. COCO AP of the detector, laid out as in step 5's summary.txt
+    lines += [f"  4. COCO AP of the detector alone (YOLO; as main_evaluate2d.py's summary.txt): 101-pt, "
+              f"maxDets={first['settings']['max_dets_per_image']},",
+              f"  over every saved box (the whole precision-recall curve). The factor-graph sets have none: their",
+              f"  inserted boxes all score {score:g} (backproj_score), so an AP over them would follow that constant,",
+              f"  and 'on tracks only' holds just the boxes tracking used, so its curve stops there."]
+    areas = list(next(iter(first["average_precision"].values())))
+    lines.append(f"  {'view':<{width}}{'':<14}" + "".join(f"{a:>10}" for a in areas))
+    for view, by_variant in r.items():
+        for i, (ap, by_area) in enumerate(by_variant["detector"]["average_precision"].items()):
+            lines.append(f"  {view if i == 0 else '':<{width}}{ap:<14}" + "".join(f"{fmt(by_area[a]):>10}" for a in areas))
+        lines.append("")
+
+    if score < conf:
+        lines += [f"  NOTE: backproj_score {score:g} is below the P/R confidence {conf:g}, so the inserted "
+                  f"boxes are left out of P / R / F1, and the factor-graph rows show only what they drop."]
+    return "\n".join(lines).rstrip()

@@ -2,8 +2,9 @@
 
 Faithful re-implementation of pycocotools' bbox evaluation (greedy score-ordered
 matching, ignore handling for out-of-range object sizes, 101-point interpolated
-AP) extended to arbitrary IoU thresholds so mAP@0.2 can be reported alongside
-the standard mAP@0.5 and mAP@0.5:0.95.
+AP) extended to arbitrary IoU thresholds so AP@0.2 can be reported alongside
+the standard AP@0.5 and AP@0.5:0.95. The metrics are named "AP@..." when the
+ground truth has one class and "mAP@..." (mean over classes) when it has more.
 
 Inputs are plain arrays so any detector/dataset can be evaluated:
     gts   : {image_key: (N, 5) array  class, x1, y1, x2, y2}
@@ -109,6 +110,31 @@ def _best_f1(scores, tp, fp, n_gt) -> dict:
     return _pr_at_conf(scores, tp, fp, n_gt, scores[i])
 
 
+def match_boxes(gt: np.ndarray, dt: np.ndarray, iou_thr: float, max_dets: int = 100) -> list[tuple[int, int, float]]:
+    """The true positives of one image as (dt row, gt row, IoU), matched as evaluate_detections
+    does (per class, score order, each detection takes the unmatched ground truth it overlaps
+    most at IoU >= iou_thr; max_dets per class). gt: (N, 5) class + xyxy; dt: (M, 6) xyxy, score, class."""
+    pairs = []
+    for c in np.unique(np.r_[gt[:, 0], dt[:, 5]]):
+        g_rows, d_rows = np.flatnonzero(gt[:, 0] == c), np.flatnonzero(dt[:, 5] == c)
+        d_rows = d_rows[np.argsort(-dt[d_rows, 4], kind="mergesort")][:max_dets]
+        ious = box_iou(dt[d_rows, :4], gt[g_rows, 1:5])
+        taken = np.zeros(len(g_rows), bool)
+        for i, d in enumerate(d_rows):
+            cand = np.where(taken, -1.0, ious[i]) if len(g_rows) else np.zeros(0)
+            if len(cand) and cand.max() >= min(iou_thr, 1 - 1e-10):
+                j = int(cand.argmax())
+                taken[j] = True
+                pairs.append((int(d), int(g_rows[j]), float(ious[i, j])))
+    return pairs
+
+
+def ap_name(name: str, n_classes: int) -> str:
+    """"mAP@0.5" / "AP@0.5" as "AP@0.5" for one class, "mAP@0.5" for more (a mean over classes)."""
+    base = name[1:] if name.startswith("mAP") else name
+    return "m" + base if n_classes > 1 and base.startswith("AP") else base
+
+
 def evaluate_detections(
     gts: dict[str, np.ndarray],
     preds: dict[str, np.ndarray],
@@ -118,10 +144,11 @@ def evaluate_detections(
     max_dets: int = 100,
     pr_conf: float | None = None,
 ) -> dict:
-    """Compute mAP per (IoU setting x size range) and P/R/F1 per IoU threshold.
+    """Compute AP per (IoU setting x size range) and P/R/F1 per IoU threshold.
 
-    map_iou_thresholds: named IoU sets, each averaged into one mAP, e.g.
+    map_iou_thresholds: named IoU sets, each averaged into one AP, e.g.
         {"mAP@0.2": [0.2], "mAP@0.5": [0.5], "mAP@0.5:0.95": [0.5, ..., 0.95]}
+        The names are reported as "AP@..." when the ground truth has one class, "mAP@..." otherwise.
     pr_conf: confidence for precision/recall (None = keep every saved prediction).
     """
     if map_iou_thresholds is None:
@@ -137,6 +164,8 @@ def evaluate_detections(
     empty_gt, empty_dt = np.zeros((0, 5)), np.zeros((0, 6))
     classes = sorted({int(c) for k in keys for c in gts.get(k, empty_gt)[:, 0]}
                      | {int(c) for k in keys for c in preds.get(k, empty_dt)[:, 5]})
+    # Only classes with ground truth enter the mean (the others' AP is undefined).
+    gt_classes = {int(c) for k in keys for c in gts.get(k, empty_gt)[:, 0]}
 
     # acc[area][cls] -> lists of per-image (scores, dt_m, dt_ig) and non-ignored gt count
     acc = {a: {c: {"scores": [], "m": [], "ig": [], "n_gt": 0} for c in classes} for a in area_ranges}
@@ -180,10 +209,11 @@ def evaluate_detections(
         vals = [v for v in vals if v >= 0]
         return float(np.mean(vals)) if vals else -1.0
 
-    # ---- mAP table: map_name -> area -> value, plus per-class breakdown
-    mAP, per_class = {}, {c: {} for c in classes}
-    for name, thrs in map_iou_thresholds.items():
-        mAP[name] = {}
+    # ---- AP table: AP name -> area -> value (mean over classes), plus per-class breakdown
+    ap_table, per_class = {}, {c: {} for c in classes}
+    for config_name, thrs in map_iou_thresholds.items():
+        name = ap_name(config_name, len(gt_classes))
+        ap_table[name] = {}
         for a in area_ranges:
             class_aps = []
             for c in classes:
@@ -195,8 +225,8 @@ def evaluate_detections(
                     aps.append(_average_precision(tp[ti][keep], fp[ti][keep], n_gt))
                 ap = mean_valid(aps)
                 class_aps.append(ap)
-                per_class[c].setdefault(name, {})[a] = ap
-            mAP[name][a] = mean_valid(class_aps)
+                per_class[c].setdefault(ap_name(config_name, 1), {})[a] = ap  # one class: AP
+            ap_table[name][a] = mean_valid(class_aps)
 
     # ---- precision / recall / F1 (all sizes, summed over classes)
     pr = {}
@@ -220,11 +250,12 @@ def evaluate_detections(
         }
 
     return {
-        "mAP": mAP,
+        "average_precision": ap_table,
         "precision_recall": pr,
         "per_class": {str(c): v for c, v in per_class.items()},
         "settings": {
             "map_iou_thresholds": map_iou_thresholds,
+            "gt_classes": len(gt_classes),
             "pr_iou_thresholds": list(pr_iou_thresholds),
             "area_ranges": area_ranges,
             "max_dets_per_image": max_dets,

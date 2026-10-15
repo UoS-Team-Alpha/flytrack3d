@@ -35,24 +35,27 @@ def list_images(image_dir: str | Path, recursive: bool = False) -> list[Path]:
     return sorted(p for p in Path(image_dir).glob("**/*" if recursive else "*") if p.suffix in IMAGE_SUFFIXES)
 
 
-def read_yolo_boxes(label_path: str | Path) -> list[list[float]]:
-    """The [class, x_centre, y_centre, width, height] rows of a label file (normalised); [] if it is missing."""
+def read_yolo_rows(label_path: str | Path) -> np.ndarray:
+    """(N, 6) class, x_centre, y_centre, width, height, conf (normalised) of a label file: ground
+    truth ("class xc yc w h", conf = 1) or predictions ("class xc yc w h conf"). Rows of any other
+    length (e.g. segmentation polygons) are skipped. Empty if the file is missing."""
     label_path = Path(label_path)
-    if not label_path.exists():
-        return []
-    rows = (line.split() for line in label_path.read_text().splitlines())
-    return [[float(v) for v in row] for row in rows if len(row) == 5]
+    if not label_path.is_file():
+        return np.zeros((0, 6))
+    rows = [ln.split() for ln in label_path.read_text().splitlines()]
+    rows = [r + ["1"] if len(r) == 5 else r for r in rows if len(r) in (5, 6)]
+    return np.array(rows, dtype=np.float64).reshape(-1, 6)
+
+
+def read_yolo_boxes(label_path: str | Path) -> list[list[float]]:
+    """The [class, x_centre, y_centre, width, height] rows of a label file (normalised; a prediction
+    file's conf column is dropped); [] if it is missing."""
+    return read_yolo_rows(label_path)[:, :5].tolist()
 
 
 def read_yolo_labels(path: Path, width: int, height: int) -> np.ndarray:
-    """Read a YOLO txt file (class xc yc w h [conf]) into pixel xyxy."""
-    if not path.is_file():
-        return np.zeros((0, 5), dtype=np.float64)
-    rows = [ln.split() for ln in path.read_text().splitlines() if ln.strip()]
-    if not rows:
-        return np.zeros((0, 5), dtype=np.float64)
-    arr = np.array([[float(v) for v in r[:5]] for r in rows], dtype=np.float64)
-    cls, xc, yc, w, h = arr.T
+    """Read a YOLO txt file (class xc yc w h [conf]) into (N, 5) class + pixel xyxy (conf dropped)."""
+    cls, xc, yc, w, h, _ = read_yolo_rows(path).T
     return np.stack([
         cls,
         (xc - w / 2) * width,

@@ -31,6 +31,7 @@ from tqdm import tqdm
 
 from common.datasets import Dataset, dataset_summary, discover_batch, discover_inputs, iter_frame_images, load_dataset
 from visualise.boxes.video import save_videos
+from visualise.charts.evaluation import save_detection_charts
 from visualise.metrics.detection import format_batch_table, format_comparison, format_model_report, headline
 from visualise.plots2d.track_plots import save_track_plots
 
@@ -107,7 +108,7 @@ def flatten_row(name: str, info: dict, results: dict) -> dict:
         for kind in ("at_conf", "best_f1"):
             for k in ("conf", "precision", "recall", "f1", "tp", "fp", "fn"):
                 row[f"{iou_name}_{kind}_{k}"] = d[kind][k]
-    for map_name, by_area in results["mAP"].items():
+    for map_name, by_area in results["average_precision"].items():
         for a, v in by_area.items():
             row[f"{map_name}_{a}"] = v
     return row
@@ -139,11 +140,12 @@ def eval_settings(config: dict) -> dict:
                                      {"mAP@0.2": [0.2], "mAP@0.5": [0.5], "mAP@0.5:0.95": COCO_IOUS.tolist()}),
         "pr_iou_thresholds": ev.get("pr_iou_thresholds", [0.2, 0.5]),
         "max_dets_per_image": int(ev.get("max_dets_per_image", 100)),
-        "pr_conf_threshold": ev.get("pr_conf_threshold"),
+        "pr_conf_threshold": ev.get("pr_conf_threshold", 0.25),
     }
 
 
 def model_conf(detector: Detector, es: dict) -> float:
+    """Confidence for P/R/F1: evaluation.pr_conf_threshold; null = every saved prediction."""
     return es["pr_conf_threshold"] if es["pr_conf_threshold"] is not None else detector.confidence_threshold
 
 
@@ -190,8 +192,10 @@ def evaluate_dataset(ds: Dataset, detectors: list[Detector], out_dir: Path, outp
     return out
 
 
-def write_results(out_dir: Path, header: list[str], model_out: dict[str, dict], extra: list[str] = ()) -> None:
-    """summary.txt, metrics.json and metrics.csv for one dataset (or the pooled batch)."""
+def write_results(out_dir: Path, header: list[str], model_out: dict[str, dict], extra: list[str] = (),
+                  per_input: dict[str, dict] | None = None) -> None:
+    """summary.txt, metrics.json, metrics.csv and summary.png for one dataset (or the pooled batch;
+    per_input = {input: {model: results}} adds a per-input panel to the chart)."""
     reports = [m["report"] for m in model_out.values()]
     all_results = {name: m["results"] for name, m in model_out.items()}
     comparison = format_comparison(all_results)
@@ -199,6 +203,7 @@ def write_results(out_dir: Path, header: list[str], model_out: dict[str, dict], 
         "\n".join(header + reports + ([comparison] if comparison else []) + list(extra)) + "\n")
     (out_dir / "metrics.json").write_text(json.dumps(all_results, indent=2))
     write_csv(out_dir / "metrics.csv", [flatten_row(n, m["info"], m["results"]) for n, m in model_out.items()])
+    save_detection_charts(out_dir / "summary.png", all_results, per_input, title=header[0] if header else "")
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -216,7 +221,9 @@ def summary_header(run_name: str, ds_info: dict, es: dict) -> list[str]:
         f"Dataset        : {ds_info['name']}  ({ds_info['frames']} frames, {ds_info['gt_boxes']} GT boxes, "
         f"sizes {ds_info['gt_boxes_by_size']})",
         f"Size ranges    : " + ", ".join(f"{k}=[{v[0]:g}, {v[1]:g}] px^2" for k, v in es["area_ranges"].items()),
-        f"P/R conf       : {pr_conf if pr_conf is not None else 'each model confidence_threshold'}",
+        f"P/R/F1 conf    : {pr_conf if pr_conf is not None else 'every saved box'}  (evaluation.pr_conf_threshold, the operating point)",
+        "AP             : over every saved box (each model's inference confidence_threshold and up), "
+        "i.e. the whole precision-recall curve",
         "",
     ]
 
@@ -237,10 +244,11 @@ def select_detectors(config: dict, only_models: list[str] | None) -> list[Detect
 
 
 def run_evaluation(config: dict, force_inference: bool = False, only_models: list[str] | None = None,
-                   save_video: bool = False, save_track_plot: bool = False) -> Path:
+                   save_video: bool = False, save_track_plot: bool = False, run_name: str | None = None) -> Path:
+    """run_name: the run folder's name (default run_<datetime>)."""
     output_root = Path(config.get("output_dir", "output"))
     detectors = select_detectors(config, only_models)  # fail fast before creating a run folder
-    run_dir = output_root / f"run_{datetime.now():%Y%m%d-%H%M%S}"
+    run_dir = output_root / (run_name or f"run_{datetime.now():%Y%m%d-%H%M%S}")
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.json").write_text(json.dumps(config, indent=2))
 
@@ -368,7 +376,8 @@ def run_batch(batch_cfg: dict, run_dir: Path, metadata: dict, detectors: list[De
     header = summary_header(run_dir.name, pooled_ds_info, es)
     header[1:1] = [f"Batch inputs   : {len(item_out)} evaluated, {len(skipped)} skipped"]
     write_results(run_dir, header, pooled,
-                  extra=["", table] + (["", "Skipped:"] + [f"  {s}" for s in skipped] if skipped else []))
+                  extra=["", table] + (["", "Skipped:"] + [f"  {s}" for s in skipped] if skipped else []),
+                  per_input={n: {m: o["results"] for m, o in out.items()} for n, out in item_out.items()})
     # Run-level metrics.json / metrics.csv also carry every input's results.
     (run_dir / "metrics.json").write_text(json.dumps({
         "pooled": {n: p["results"] for n, p in pooled.items()},
@@ -402,15 +411,17 @@ def inference_inputs(ds_cfg: dict, inputs: str | None = None) -> list[dict]:
 
 
 def run_inference_only(config: dict, force_inference: bool = False, only_models: list[str] | None = None,
-                       inputs: str | None = None) -> Path:
+                       inputs: str | None = None, run_name: str | None = None,
+                       items: list[dict] | None = None) -> Path:
     """Predictions for every input, no evaluation. Cached predictions (from evaluation or
-    inference runs, same detector and frames) are reused."""
+    inference runs, same detector and frames) are reused. run_name: the run folder's name (default
+    run_<datetime>); items: the per-input dataset configs to run (default: from inputs / the config)."""
     output_root = Path(config.get("output_dir", "output"))
     detectors = select_detectors(config, only_models)  # fail fast before creating a run folder
-    items = inference_inputs(config["dataset"], inputs)
+    items = items or inference_inputs(config["dataset"], inputs)
     if not items:
         raise SystemExit(f"No videos or frame folders found in {inputs or config['dataset'].get('inputs')}")
-    run_dir = output_root / f"run_{datetime.now():%Y%m%d-%H%M%S}"
+    run_dir = output_root / (run_name or f"run_{datetime.now():%Y%m%d-%H%M%S}")
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.json").write_text(json.dumps(config, indent=2))
     metadata = {"run": run_dir.name, "kind": "inference", "started": datetime.now().isoformat(timespec="seconds"),
