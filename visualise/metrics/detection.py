@@ -8,9 +8,13 @@ def fmt(v: float) -> str:
     return "  n/a " if v is None or v < 0 else f"{v:.4f}"
 
 
-def ap_tag(name: str) -> str:
-    """Column header for an AP metric: "AP@0.5" / "mAP@0.5" -> "@0.5"."""
-    return name[name.index("@"):] if "@" in name else name
+AP_COL = 13   # width of an AP column ("mAP@0.5:0.95" plus a space)
+
+
+def pr_conf_text(results: dict) -> str:
+    """The confidence P/R/F1 were taken at, e.g. "conf >= 0.25"."""
+    conf = results["settings"]["pr_conf"]
+    return "every saved box" if conf is None else f"conf >= {conf:g}"
 
 
 def ap_values(results: dict) -> list[float]:
@@ -34,7 +38,8 @@ def format_model_report(name: str, info: dict, results: dict, class_names: dict)
         "=" * 78,
         f"  type/model_type : {cfg.get('type', 'sahi')} / {cfg.get('model_type', '-')}",
         f"  weights         : {cfg.get('model_path')}",
-        f"  conf threshold  : {cfg.get('confidence_threshold')}",
+        f"  inference conf  : {cfg.get('confidence_threshold')}  (every box at or above it is saved; "
+        f"AP uses them all)",
     ]
     if cfg.get("type", "sahi") == "sahi":
         lines.append(
@@ -50,14 +55,17 @@ def format_model_report(name: str, info: dict, results: dict, class_names: dict)
         f"  total dets      : {results['settings']['predictions']}",
         "",
         f"  {'Mean average precision' if results['settings']['gt_classes'] > 1 else 'Average precision'} "
-        f"(COCO 101-pt, maxDets={results['settings']['max_dets_per_image']})",
+        f"(COCO 101-pt, maxDets={results['settings']['max_dets_per_image']}; over every saved box, "
+        f"whole precision-recall curve)",
     ]
     areas = list(next(iter(results["average_precision"].values())).keys())
     lines.append("  " + f"{'':<14}" + "".join(f"{a:>10}" for a in areas))
     for map_name, by_area in results["average_precision"].items():
         lines.append("  " + f"{map_name:<14}" + "".join(f"{fmt(by_area[a]):>10}" for a in areas))
 
-    lines += ["", "  Precision / recall (all sizes)"]
+    lines += ["", f"  Precision / recall (all sizes). at conf = the operating point ({pr_conf_text(results)}, "
+                  f"evaluation.pr_conf_threshold);",
+              "  best F1 = the confidence that maximises F1 over every saved box"]
     lines.append("  " + f"{'':<22}{'conf':>7}{'P':>9}{'R':>9}{'F1':>9}{'TP':>8}{'FP':>8}{'FN':>8}")
     for iou_name, d in results["precision_recall"].items():
         for label, key in (("at conf", "at_conf"), ("best F1", "best_f1")):
@@ -87,17 +95,21 @@ def format_comparison(all_results: dict) -> str:
     cols = [(f"P{tag}", lambda r: r["precision_recall"][pr_key]["at_conf"]["precision"]),
             (f"R{tag}", lambda r: r["precision_recall"][pr_key]["at_conf"]["recall"])]
     for i, m in enumerate(next(iter(all_results.values()))["average_precision"]):
-        cols.append((ap_tag(m), lambda r, i=i: ap_values(r)[i]))
-    lines = ["=" * 78, " COMPARISON (all sizes)", "=" * 78,
-             "  " + f"{'model':<24}" + "".join(f"{c:>10}" for c, _ in cols)]
+        cols.append((m, lambda r, i=i: ap_values(r)[i]))
+    first_res = next(iter(all_results.values()))
+    lines = ["=" * 78, f" COMPARISON (all sizes; P/R at {pr_conf_text(first_res)}; AP over every saved box)", "=" * 78,
+             "  " + f"{'model':<24}" + "".join(f"{c:>{10 if i < 2 else AP_COL}}" for i, (c, _) in enumerate(cols))]
     for name, r in all_results.items():
-        lines.append("  " + f"{name:<24}" + "".join(f"{fmt(f(r)):>10}" for _, f in cols))
+        lines.append("  " + f"{name:<24}"
+                     + "".join(f"{fmt(f(r)):>{10 if i < 2 else AP_COL}}" for i, (_, f) in enumerate(cols)))
     return "\n".join(lines)
 
 
 def format_batch_table(item_results: dict[str, dict], pooled: dict, item_sizes: dict[str, tuple]) -> str:
     """Per-input breakdown for each model, with the pooled result as the last row."""
-    lines = ["=" * 78, " PER-INPUT RESULTS (all sizes; P/R/F1 at each model's conf)", "=" * 78]
+    first_res = next(iter(pooled.values()))
+    lines = ["=" * 78, f" PER-INPUT RESULTS (all sizes; P/R/F1 at {pr_conf_text(first_res)}; AP over every saved box)",
+             "=" * 78]
     width = max(len(n) for n in [*item_results, "ALL (pooled)"]) + 2
     for model, pooled_res in pooled.items():
         pr_key = pr_iou_key(pooled_res)
@@ -105,16 +117,16 @@ def format_batch_table(item_results: dict[str, dict], pooled: dict, item_sizes: 
         map_names = list(pooled_res["average_precision"])
         lines += ["", f"  {model}",
                   "  " + f"{'input':<{width}}{'frames':>7}{'GT':>7}" + f"{'P' + tag:>9}{'R' + tag:>9}"
-                  f"{'F1' + tag:>9}" + "".join(f"{ap_tag(m):>10}" for m in map_names)]
+                  f"{'F1' + tag:>9}" + "".join(f"{m:>{AP_COL}}" for m in map_names)]
         rows = [(n, r[model], item_sizes[n]) for n, r in item_results.items() if model in r]
         rows.append(("ALL (pooled)", pooled_res, item_sizes["ALL (pooled)"]))
         for i, (name, r, (frames, gt)) in enumerate(rows):
             if i == len(rows) - 1:
-                lines.append("  " + "-" * (width + 32 + 10 * len(map_names)))
+                lines.append("  " + "-" * (width + 41 + AP_COL * len(map_names)))
             at = r["precision_recall"][pr_key]["at_conf"]
             lines.append("  " + f"{name:<{width}}{frames:>7}{gt:>7}{fmt(at['precision']):>9}"
                          f"{fmt(at['recall']):>9}{fmt(at['f1']):>9}"
-                         + "".join(f"{fmt(v):>10}" for v in ap_values(r)))
+                         + "".join(f"{fmt(v):>{AP_COL}}" for v in ap_values(r)))
     return "\n".join(lines)
 
 

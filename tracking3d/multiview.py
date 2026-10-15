@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 from common.datasets import IMAGE_EXTS, SPLIT_LISTS, Frame, resolve_label_dir
-from common.yolo_format import read_yolo_labels
+from common.yolo_format import read_yolo_labels, read_yolo_rows
 from detection.predictions import PRED_DIR
 from common.linking import link_tracks
 
@@ -176,11 +176,8 @@ def _frame_no(stem: str) -> int | None:
 
 
 def _read_centres(path: Path, w: int, h: int, with_conf: bool) -> np.ndarray:
-    rows = [ln.split() for ln in path.read_text().splitlines() if ln.strip()]
-    if not rows:
-        return np.zeros((0, 3))
-    a = np.array(rows, dtype=np.float64)
-    conf = a[:, 5] if with_conf and a.shape[1] > 5 else np.ones(len(a))
+    a = read_yolo_rows(path)
+    conf = a[:, 5] if with_conf else np.ones(len(a))
     return np.stack([a[:, 1] * w, a[:, 2] * h, conf], axis=1)
 
 
@@ -280,7 +277,7 @@ def views_summary(views: list[View]) -> list[str]:
 def tracking_settings(config: dict) -> dict:
     """config["tracking3d"] with defaults filled in."""
     defaults = {
-        "conf_threshold": None,
+        "conf_threshold": 0.25,
         "max_epipolar_px": 15.0,
         "max_reprojection_px": 10.0,
         "link_max_distance": 20.0,

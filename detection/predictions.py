@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from common.datasets import Dataset
+from common.yolo_format import read_yolo_rows
 
 from .detectors import Detector
 
@@ -62,9 +63,7 @@ def load_predictions(pred_dir: Path, ds: Dataset) -> dict[str, np.ndarray]:
     preds = {}
     for f in ds.frames:
         path = pred_dir / f"{f.key}.txt"
-        rows = [ln.split() for ln in path.read_text().splitlines() if ln.strip()] if path.is_file() else []
-        a = np.array(rows, dtype=np.float64).reshape(-1, 6)
-        cls, xc, yc, w, h, score = a.T
+        cls, xc, yc, w, h, score = read_yolo_rows(path).T
         preds[f.key] = np.stack([(xc - w / 2) * f.width, (yc - h / 2) * f.height,
                                  (xc + w / 2) * f.width, (yc + h / 2) * f.height, score, cls], axis=1)
     return preds

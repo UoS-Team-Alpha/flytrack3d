@@ -139,11 +139,12 @@ def eval_settings(config: dict) -> dict:
                                      {"mAP@0.2": [0.2], "mAP@0.5": [0.5], "mAP@0.5:0.95": COCO_IOUS.tolist()}),
         "pr_iou_thresholds": ev.get("pr_iou_thresholds", [0.2, 0.5]),
         "max_dets_per_image": int(ev.get("max_dets_per_image", 100)),
-        "pr_conf_threshold": ev.get("pr_conf_threshold"),
+        "pr_conf_threshold": ev.get("pr_conf_threshold", 0.25),
     }
 
 
 def model_conf(detector: Detector, es: dict) -> float:
+    """Confidence for P/R/F1: evaluation.pr_conf_threshold; null = every saved prediction."""
     return es["pr_conf_threshold"] if es["pr_conf_threshold"] is not None else detector.confidence_threshold
 
 
@@ -216,7 +217,9 @@ def summary_header(run_name: str, ds_info: dict, es: dict) -> list[str]:
         f"Dataset        : {ds_info['name']}  ({ds_info['frames']} frames, {ds_info['gt_boxes']} GT boxes, "
         f"sizes {ds_info['gt_boxes_by_size']})",
         f"Size ranges    : " + ", ".join(f"{k}=[{v[0]:g}, {v[1]:g}] px^2" for k, v in es["area_ranges"].items()),
-        f"P/R conf       : {pr_conf if pr_conf is not None else 'each model confidence_threshold'}",
+        f"P/R/F1 conf    : {pr_conf if pr_conf is not None else 'every saved box'}  (evaluation.pr_conf_threshold, the operating point)",
+        "AP             : over every saved box (each model's inference confidence_threshold and up), "
+        "i.e. the whole precision-recall curve",
         "",
     ]
 

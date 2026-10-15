@@ -4,13 +4,14 @@
   "_readme": "Template only. Copy to evaluation.json in this folder, fill it in and delete the '_example' line; the main_*.py scripts refuse to run a config that still has it. Shared: other configs pull it in with \"_include\", so it is set once. The metric and 2D visualisation settings of step 5, which step 8 reuses when it scores its tracks in 2D.",
 
   "evaluation": {
+    "_readme": "AP is computed over every saved prediction (down to the models' inference confidence_threshold, 0.001 by default), so it covers the whole precision-recall curve. pr_conf_threshold = the operating point for P/R/F1 (0.25; null = every saved prediction); 'best F1' searches every confidence. The visualisation conf_threshold (boxes drawn in videos and track plots) null = pr_conf_threshold.",
     "map_iou_thresholds": {
       "mAP@0.2": [0.2],
       "mAP@0.5": [0.5],
       "mAP@0.5:0.95": [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
     },
     "pr_iou_thresholds": [0.2, 0.5],
-    "pr_conf_threshold": null,
+    "pr_conf_threshold": 0.25,
     "max_dets_per_image": 100,
     "area_ranges": {
       "all": [0, 1e10],

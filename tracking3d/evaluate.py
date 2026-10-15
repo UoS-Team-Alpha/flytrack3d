@@ -121,9 +121,10 @@ class ViewData:
     preds: dict[str, np.ndarray]     # key -> (M, 6) x1, y1, x2, y2, score, class (raw pixels)
     keys: dict[int, str]             # aligned frame number -> dataset frame key
     conf: float                      # confidence for P/R (as in main_evaluate2d.py)
+    vis_conf: float                  # boxes drawn in the videos / track plots (as in main_evaluate2d.py)
 
 
-def load_view_data(session, view: View, es: dict) -> ViewData:
+def load_view_data(session, view: View, es: dict, vis: dict) -> ViewData:
     meta = session.run.metadata["inputs"][view.input_name]
     ds = load_dataset(meta["dataset"]["source"])
     preds = load_predictions(session.run.path / view.input_name / session.model / PRED_DIR, ds)
@@ -131,7 +132,8 @@ def load_view_data(session, view: View, es: dict) -> ViewData:
     conf = es["pr_conf_threshold"]
     if conf is None:
         conf = meta["models"][session.model]["model_config"].get("confidence_threshold", 0.0)
-    return ViewData(ds, preds, keys, float(conf))
+    vis_conf = vis.get("conf_threshold") if vis.get("conf_threshold") is not None else conf
+    return ViewData(ds, preds, keys, float(conf), float(vis_conf))
 
 
 def backproject(tracks: list[Track3D], views: list[View], data: list[ViewData],
@@ -238,18 +240,18 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
 
     if s["evaluate_2d"] or s["visualise_backproj_graph"] or s["visualise_backproj_video"]:
         es = eval_settings(config)
-        data = [load_view_data(session, v, es) for v in session.views]
+        vis = config.get("visualisation", {})
+        data = [load_view_data(session, v, es, vis) for v in session.views]
         inserted, on_track = backproject(tracks, session.views, data, float(s["backproj_score"]))
         n_ins = sum(len(b) for ins in inserted for b in ins.values())
         has_gt = any(len(f.gt) for d in data for f in d.ds.frames)
         if s["evaluate_2d"] and has_gt:
             results["2d"] = evaluate_2d(session.views, data, inserted, on_track, es)
-            text = format_2d(results["2d"], data, float(s["backproj_score"]))
+            text = format_2d(results["2d"], data, float(s["backproj_score"]), s["conf_threshold"])
             (out_dir / "evaluation_2d.txt").write_text(text + "\n")
             msgs.append(text)
         elif s["evaluate_2d"]:
             msgs.append("2D evaluation skipped: this run has no ground-truth labels.")
-        vis = config.get("visualisation", {})
         if s["visualise_backproj_graph"] or s["visualise_backproj_video"]:
             label_dir = out_dir / "reprojection" / "labels"
             for v, d, ins in zip(session.views, data, inserted):
@@ -261,12 +263,12 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
             points = project_tracks(tracks, session.views, data)
             for v, d, ins, pts in zip(session.views, data, inserted, points):
                 save_backproj_video(d.ds.frames, d.preds, ins, pts, out_dir / "reprojection" / f"{safe_name(v.name)}.mp4",
-                                    v.name, session.model, d.conf, fps=float(vis.get("video_fps", 30)))
+                                    v.name, session.model, d.vis_conf, fps=float(vis.get("video_fps", 30)))
             msgs.append(f"Back-projection videos: {out_dir / 'reprojection'}/<camera>.mp4")
         if s["visualise_backproj_graph"]:
             plot_dir = out_dir / "track_plots_backproj"
             for v, d, ins in zip(session.views, data, inserted):
-                save_track_plots(d.ds.frames, d.preds, plot_dir, session.model, d.conf,
+                save_track_plots(d.ds.frames, d.preds, plot_dir, session.model, d.vis_conf,
                                  max_distance=vis.get("track_max_distance_px", 50),
                                  max_gap=vis.get("track_max_frame_gap", 5),
                                  background=vis.get("track_plot_background", True),

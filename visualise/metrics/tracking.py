@@ -3,7 +3,7 @@ the 2D evaluation with the tracks back-projected (results as computed by trackin
 
 from __future__ import annotations
 
-from .detection import ap_tag, ap_values, fmt, pr_iou_key
+from .detection import AP_COL, ap_values, fmt, pr_iou_key
 
 
 def format_summary(session, tracks: list, summaries: list[dict], s: dict, heading: str) -> str:
@@ -72,8 +72,8 @@ def format_3d(r: dict) -> str:
     return "\n".join(lines)
 
 
-def format_2d(r: dict, data: list, score: float) -> str:
-    """data: tracking3d.evaluate.ViewData per view (only its conf is used)."""
+def format_2d(r: dict, data: list, score: float, track_conf: float | None) -> str:
+    """data: tracking3d.evaluate.ViewData per view (only its conf is used); track_conf: tracking3d.conf_threshold."""
     first = r["ALL (pooled)"]["detector"]
     pr_key = pr_iou_key(first)
     tag = pr_key.replace("IoU@", "@")
@@ -83,15 +83,20 @@ def format_2d(r: dict, data: list, score: float) -> str:
              f"  detector       : the saved predictions (as main_evaluate2d.py scored them)",
              f"  + factor graph : plus a box wherever a track has no detection in that view (score {score:g})",
              f"  on tracks only : only the predictions a track used, plus those boxes",
-             f"  P / R / F1 at conf {data[0].conf:g}; all sizes", "",
+             f"  P / R / F1 at conf >= {data[0].conf:g} (evaluation.pr_conf_threshold); all sizes",
+             f"  AP over every box of the row: the saved predictions down to the inference threshold, "
+             f"inserted boxes at {score:g}.",
+             f"  'on tracks only' holds just the boxes tracking used "
+             f"({'every saved box' if track_conf is None else f'conf >= {track_conf:g}'}, tracking3d.conf_threshold),",
+             f"  so its AP stops at that confidence: read its P / R / F1.", "",
              f"  {'view':<{width}}{'predictions':<16}{'boxes':>7}{'P' + tag:>9}{'R' + tag:>9}{'F1' + tag:>9}"
-             + "".join(f"{ap_tag(m):>10}" for m in maps)]
+             + "".join(f"{m:>{AP_COL}}" for m in maps)]
     for view, by_variant in r.items():
         for i, (name, res) in enumerate(by_variant.items()):
             at = res["precision_recall"][pr_key]["at_conf"]
             lines.append(f"  {view if i == 0 else '':<{width}}{name:<16}{res['boxes']:>7}{fmt(at['precision']):>9}"
                          f"{fmt(at['recall']):>9}{fmt(at['f1']):>9}"
-                         + "".join(f"{fmt(v):>10}" for v in ap_values(res)))
+                         + "".join(f"{fmt(v):>{AP_COL}}" for v in ap_values(res)))
         lines.append("")
     if score < data[0].conf:
         lines.append(f"  NOTE: backproj_score {score:g} is below the P/R confidence {data[0].conf:g}, so inserted "

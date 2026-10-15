@@ -40,7 +40,7 @@ class Detector(ABC):
         self.cfg = dict(cfg)
         self.name: str = cfg["name"]
         self.model_path: str | None = cfg.get("model_path")
-        self.confidence_threshold: float = float(cfg.get("confidence_threshold", 0.25))
+        self.confidence_threshold: float = float(cfg.get("confidence_threshold", 0.001))
         self.class_names: dict[int, str] = {}
         self._loaded = False
         self._weights_sha256: str | None = None
