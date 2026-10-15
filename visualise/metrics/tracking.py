@@ -3,7 +3,7 @@ the 2D evaluation with the tracks back-projected (results as computed by trackin
 
 from __future__ import annotations
 
-from .detection import fmt, pr_iou_key
+from .detection import ap_tag, ap_values, fmt, pr_iou_key
 
 
 def format_summary(session, tracks: list, summaries: list[dict], s: dict, heading: str) -> str:
@@ -77,7 +77,7 @@ def format_2d(r: dict, data: list, score: float) -> str:
     first = r["ALL (pooled)"]["detector"]
     pr_key = pr_iou_key(first)
     tag = pr_key.replace("IoU@", "@")
-    maps = list(first["mAP"])
+    maps = list(first["average_precision"])
     width = max(len(n) for n in r) + 2
     lines = ["2D evaluation with the factor-graph tracks projected back into each camera", "",
              f"  detector       : the saved predictions (as main_evaluate2d.py scored them)",
@@ -85,15 +85,15 @@ def format_2d(r: dict, data: list, score: float) -> str:
              f"  on tracks only : only the predictions a track used, plus those boxes",
              f"  P / R / F1 at conf {data[0].conf:g}; all sizes", "",
              f"  {'view':<{width}}{'predictions':<16}{'boxes':>7}{'P' + tag:>9}{'R' + tag:>9}{'F1' + tag:>9}"
-             + "".join(f"{m.replace('mAP', ''):>10}" for m in maps)]
+             + "".join(f"{ap_tag(m):>10}" for m in maps)]
     for view, by_variant in r.items():
         for i, (name, res) in enumerate(by_variant.items()):
             at = res["precision_recall"][pr_key]["at_conf"]
             lines.append(f"  {view if i == 0 else '':<{width}}{name:<16}{res['boxes']:>7}{fmt(at['precision']):>9}"
                          f"{fmt(at['recall']):>9}{fmt(at['f1']):>9}"
-                         + "".join(f"{fmt(res['mAP'][m]['all']):>10}" for m in maps))
+                         + "".join(f"{fmt(v):>10}" for v in ap_values(res)))
         lines.append("")
     if score < data[0].conf:
         lines.append(f"  NOTE: backproj_score {score:g} is below the P/R confidence {data[0].conf:g}, so inserted "
-                     f"boxes only count towards mAP.")
+                     f"boxes only count towards {'mAP' if first['settings']['gt_classes'] > 1 else 'AP'}.")
     return "\n".join(lines)

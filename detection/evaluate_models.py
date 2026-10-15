@@ -107,7 +107,7 @@ def flatten_row(name: str, info: dict, results: dict) -> dict:
         for kind in ("at_conf", "best_f1"):
             for k in ("conf", "precision", "recall", "f1", "tp", "fp", "fn"):
                 row[f"{iou_name}_{kind}_{k}"] = d[kind][k]
-    for map_name, by_area in results["mAP"].items():
+    for map_name, by_area in results["average_precision"].items():
         for a, v in by_area.items():
             row[f"{map_name}_{a}"] = v
     return row
