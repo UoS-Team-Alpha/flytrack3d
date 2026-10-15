@@ -83,8 +83,11 @@ class SahiDetector(Detector):
         "overlap_height_ratio": 0.2,
         "overlap_width_ratio": 0.2,
         "perform_standard_pred": True,
-        "postprocess_type": "GREEDYNMM",
-        "postprocess_match_metric": "IOS",
+        # NMS/IOU, not SAHI's GREEDYNMM/IOS: greedy merging chains the many low-score boxes of a
+        # low confidence_threshold into oversized boxes. Passed with force_postprocess_type, so
+        # what is configured is what runs (SAHI otherwise switches to NMS/IOU below 0.1 itself).
+        "postprocess_type": "NMS",
+        "postprocess_match_metric": "IOU",
         "postprocess_match_threshold": 0.5,
         "postprocess_class_agnostic": False,
         "image_size": None,
@@ -124,6 +127,7 @@ class SahiDetector(Detector):
             postprocess_match_metric=c["postprocess_match_metric"],
             postprocess_match_threshold=c["postprocess_match_threshold"],
             postprocess_class_agnostic=c["postprocess_class_agnostic"],
+            force_postprocess_type=True,
             batch_size=c["batch_size"],
             verbose=0,
         )
