@@ -244,10 +244,11 @@ def select_detectors(config: dict, only_models: list[str] | None) -> list[Detect
 
 
 def run_evaluation(config: dict, force_inference: bool = False, only_models: list[str] | None = None,
-                   save_video: bool = False, save_track_plot: bool = False) -> Path:
+                   save_video: bool = False, save_track_plot: bool = False, run_name: str | None = None) -> Path:
+    """run_name: the run folder's name (default run_<datetime>)."""
     output_root = Path(config.get("output_dir", "output"))
     detectors = select_detectors(config, only_models)  # fail fast before creating a run folder
-    run_dir = output_root / f"run_{datetime.now():%Y%m%d-%H%M%S}"
+    run_dir = output_root / (run_name or f"run_{datetime.now():%Y%m%d-%H%M%S}")
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.json").write_text(json.dumps(config, indent=2))
 
@@ -410,15 +411,17 @@ def inference_inputs(ds_cfg: dict, inputs: str | None = None) -> list[dict]:
 
 
 def run_inference_only(config: dict, force_inference: bool = False, only_models: list[str] | None = None,
-                       inputs: str | None = None) -> Path:
+                       inputs: str | None = None, run_name: str | None = None,
+                       items: list[dict] | None = None) -> Path:
     """Predictions for every input, no evaluation. Cached predictions (from evaluation or
-    inference runs, same detector and frames) are reused."""
+    inference runs, same detector and frames) are reused. run_name: the run folder's name (default
+    run_<datetime>); items: the per-input dataset configs to run (default: from inputs / the config)."""
     output_root = Path(config.get("output_dir", "output"))
     detectors = select_detectors(config, only_models)  # fail fast before creating a run folder
-    items = inference_inputs(config["dataset"], inputs)
+    items = items or inference_inputs(config["dataset"], inputs)
     if not items:
         raise SystemExit(f"No videos or frame folders found in {inputs or config['dataset'].get('inputs')}")
-    run_dir = output_root / f"run_{datetime.now():%Y%m%d-%H%M%S}"
+    run_dir = output_root / (run_name or f"run_{datetime.now():%Y%m%d-%H%M%S}")
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.json").write_text(json.dumps(config, indent=2))
     metadata = {"run": run_dir.name, "kind": "inference", "started": datetime.now().isoformat(timespec="seconds"),
