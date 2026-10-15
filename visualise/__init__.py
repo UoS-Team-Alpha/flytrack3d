@@ -8,7 +8,7 @@ are called first, and what they return is passed in here.
     plots3d/   3D graphs
         scene         triangulated points and factor-graph tracks, with ground-truth,
                       annotation and arena overlays (interactive or saved)
-    charts/    statistical charts: pies, histograms and heatmaps
+    charts/    statistical charts: pies, histograms and heatmaps; bar charts of the evaluations
         dataset       what a YOLO dataset holds (pies per split and video), box positions and sizes
     boxes/     bounding boxes drawn on images and videos
         yolo_dataset  draw YOLO boxes on an image; show random samples of a YOLO dataset

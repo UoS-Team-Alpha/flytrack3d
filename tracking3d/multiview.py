@@ -296,6 +296,7 @@ def tracking_settings(config: dict) -> dict:
         "static_radius_px": 6.0,
         "static_min_fraction": 0.3,
         "eval_match_distance": 20.0,
+        "eval_match_px": 10.0,
         "evaluate_2d": True,
         "backproj_score": 0.5,
         "visualise_backproj_graph": True,

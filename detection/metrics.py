@@ -110,6 +110,25 @@ def _best_f1(scores, tp, fp, n_gt) -> dict:
     return _pr_at_conf(scores, tp, fp, n_gt, scores[i])
 
 
+def match_boxes(gt: np.ndarray, dt: np.ndarray, iou_thr: float, max_dets: int = 100) -> list[tuple[int, int, float]]:
+    """The true positives of one image as (dt row, gt row, IoU), matched as evaluate_detections
+    does (per class, score order, each detection takes the unmatched ground truth it overlaps
+    most at IoU >= iou_thr; max_dets per class). gt: (N, 5) class + xyxy; dt: (M, 6) xyxy, score, class."""
+    pairs = []
+    for c in np.unique(np.r_[gt[:, 0], dt[:, 5]]):
+        g_rows, d_rows = np.flatnonzero(gt[:, 0] == c), np.flatnonzero(dt[:, 5] == c)
+        d_rows = d_rows[np.argsort(-dt[d_rows, 4], kind="mergesort")][:max_dets]
+        ious = box_iou(dt[d_rows, :4], gt[g_rows, 1:5])
+        taken = np.zeros(len(g_rows), bool)
+        for i, d in enumerate(d_rows):
+            cand = np.where(taken, -1.0, ious[i]) if len(g_rows) else np.zeros(0)
+            if len(cand) and cand.max() >= min(iou_thr, 1 - 1e-10):
+                j = int(cand.argmax())
+                taken[j] = True
+                pairs.append((int(d), int(g_rows[j]), float(ious[i, j])))
+    return pairs
+
+
 def ap_name(name: str, n_classes: int) -> str:
     """"mAP@0.5" / "AP@0.5" as "AP@0.5" for one class, "mAP@0.5" for more (a mean over classes)."""
     base = name[1:] if name.startswith("mAP") else name

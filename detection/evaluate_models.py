@@ -31,6 +31,7 @@ from tqdm import tqdm
 
 from common.datasets import Dataset, dataset_summary, discover_batch, discover_inputs, iter_frame_images, load_dataset
 from visualise.boxes.video import save_videos
+from visualise.charts.evaluation import save_detection_charts
 from visualise.metrics.detection import format_batch_table, format_comparison, format_model_report, headline
 from visualise.plots2d.track_plots import save_track_plots
 
@@ -191,8 +192,10 @@ def evaluate_dataset(ds: Dataset, detectors: list[Detector], out_dir: Path, outp
     return out
 
 
-def write_results(out_dir: Path, header: list[str], model_out: dict[str, dict], extra: list[str] = ()) -> None:
-    """summary.txt, metrics.json and metrics.csv for one dataset (or the pooled batch)."""
+def write_results(out_dir: Path, header: list[str], model_out: dict[str, dict], extra: list[str] = (),
+                  per_input: dict[str, dict] | None = None) -> None:
+    """summary.txt, metrics.json, metrics.csv and summary.png for one dataset (or the pooled batch;
+    per_input = {input: {model: results}} adds a per-input panel to the chart)."""
     reports = [m["report"] for m in model_out.values()]
     all_results = {name: m["results"] for name, m in model_out.items()}
     comparison = format_comparison(all_results)
@@ -200,6 +203,7 @@ def write_results(out_dir: Path, header: list[str], model_out: dict[str, dict], 
         "\n".join(header + reports + ([comparison] if comparison else []) + list(extra)) + "\n")
     (out_dir / "metrics.json").write_text(json.dumps(all_results, indent=2))
     write_csv(out_dir / "metrics.csv", [flatten_row(n, m["info"], m["results"]) for n, m in model_out.items()])
+    save_detection_charts(out_dir / "summary.png", all_results, per_input, title=header[0] if header else "")
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -371,7 +375,8 @@ def run_batch(batch_cfg: dict, run_dir: Path, metadata: dict, detectors: list[De
     header = summary_header(run_dir.name, pooled_ds_info, es)
     header[1:1] = [f"Batch inputs   : {len(item_out)} evaluated, {len(skipped)} skipped"]
     write_results(run_dir, header, pooled,
-                  extra=["", table] + (["", "Skipped:"] + [f"  {s}" for s in skipped] if skipped else []))
+                  extra=["", table] + (["", "Skipped:"] + [f"  {s}" for s in skipped] if skipped else []),
+                  per_input={n: {m: o["results"] for m, o in out.items()} for n, out in item_out.items()})
     # Run-level metrics.json / metrics.csv also carry every input's results.
     (run_dir / "metrics.json").write_text(json.dumps({
         "pooled": {n: p["results"] for n, p in pooled.items()},

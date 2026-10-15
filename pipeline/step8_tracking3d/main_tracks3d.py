@@ -21,8 +21,9 @@ Outputs go to a new folder per run, <run>/3d/<model or ground_truth>/factor_grap
     reprojection/<cam>.mp4   video per camera: detector / GT / back-projected boxes (visualise_backproj_video)
     reprojection/labels/     back-projected boxes as YOLO labels, one folder per input (either visualise_backproj_*)
     evaluation_3d.txt        tracks vs the ground-truth 3D points: recall, RMSE, ... (needs GT labels)
-    evaluation_2d.txt        2D P/R/AP with the tracks back-projected into the gaps (evaluate_2d)
+    evaluation_2d.txt        2D P/R/F1 per IoU, box localisation and detector AP, with the tracks back-projected into the gaps (evaluate_2d)
     evaluation.json          both evaluations in full
+    evaluation_2d.png / evaluation_3d.png  bar charts of the two evaluations
     track_plots_backproj/    2D track plots plus the back-projected boxes (visualise_backproj_graph)
 See tracking3d/evaluate.py for how the evaluation works.
 """

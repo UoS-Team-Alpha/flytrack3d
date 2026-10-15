@@ -17,6 +17,15 @@
         + factor graph   plus the inserted boxes
         on tracks only   only the predictions a track used, plus the inserted boxes
                          (everything the factor graph rejected is dropped)
+    P/R/F1 are given at every pr_iou_threshold; AP for the detector set only (the inserted boxes
+    all share backproj_score, so an AP over them would follow that constant). How well the boxes
+    sit is measured on the true positives: IoU and centre error (px) against the ground-truth box
+    they matched, for detector and inserted boxes separately. Last, with no IoU or box size at all,
+    point sets are matched one-to-one to the ground-truth box centres by distance (Hungarian,
+    within eval_match_px): the detector's box centres, those plus the inserted ones, and the tracks
+    themselves projected into every frame (split into frames where the track had a detection in that
+    view and frames it bridged) - the 2D counterpart of the 3D evaluation, without its triangulated
+    ground truth.
 
 With visualise_backproj_graph or visualise_backproj_video, the inserted boxes are also saved as
 YOLO labels, laid out like the run's predictions (one folder per input, one .txt per frame,
@@ -38,8 +47,10 @@ from scipy.optimize import linear_sum_assignment
 
 from common.datasets import Dataset, frame_number, load_dataset, read_class_names
 from detection.evaluate_models import eval_settings, evaluate
+from detection.metrics import box_iou, match_boxes
 from detection.predictions import PRED_DIR, load_predictions, save_predictions
 from visualise.boxes.video import save_backproj_video
+from visualise.charts.evaluation import save_2d_charts, save_3d_charts
 from visualise.common import safe_name
 from visualise.metrics.tracking import format_2d, format_3d
 from visualise.plots2d.track_plots import save_track_plots
@@ -181,42 +192,186 @@ def backproject(tracks: list[Track3D], views: list[View], data: list[ViewData],
     return [{k: np.array(b) for k, b in ins.items()} for ins in inserted], on_track
 
 
-def project_tracks(tracks: list[Track3D], views: list[View], data: list[ViewData]) -> list[dict]:
+def project_tracks(tracks: list[Track3D], views: list[View], data: list[ViewData],
+                   with_observed: bool = False) -> list[dict]:
     """Per view: {frame key: (N, 2) x, y} of every track projected into the image (full camera
-    model, with distortion), in every frame it is in front of the camera and inside the image."""
+    model, with distortion), in every frame it is in front of the camera and inside the image.
+    with_observed: (N, 3) x, y, 1 if the track has a detection in that view in that frame else 0."""
     points: list[dict] = [{} for _ in views]
     for t in tracks:
+        observed = {(f, v) for f, v, _ in t.observations}
         for v, view in enumerate(views):
             (w, h), cam = view.size, view.camera
             depth, uv = cam.depth(t.xyz), cam.project(t.xyz, distort=True)
             for f, d, (x, y) in zip(t.frames, depth, uv):
                 key = data[v].keys.get(int(f))
                 if key is not None and d > 0 and 0 <= x < w and 0 <= y < h:
-                    points[v].setdefault(key, []).append((x, y))
-    return [{k: np.array(p) for k, p in pts.items()} for pts in points]
+                    points[v].setdefault(key, []).append((x, y, float((int(f), v) in observed)))
+    return [{k: np.array(p)[:, :3 if with_observed else 2] for k, p in pts.items()} for pts in points]
 
 
-def _variants(d: ViewData, ins: dict, on: dict) -> dict[str, dict]:
+def _variants(d: ViewData, ins: dict, on: dict) -> dict[str, tuple[dict, dict]]:
+    """{variant: ({key: (M, 6) boxes}, {key: (M,) bool, True = inserted by the factor graph})}."""
     empty = np.zeros((0, 6))
-    plus = {k: np.vstack([p, ins.get(k, empty)]) for k, p in d.preds.items()}
-    only = {k: np.vstack([p[on.get(k, np.zeros(len(p), bool))], ins.get(k, empty)]) for k, p in d.preds.items()}
-    return dict(zip(VARIANTS, (d.preds, plus, only)))
+    plus, only, plus_ins, only_ins = {}, {}, {}, {}
+    for k, p in d.preds.items():
+        add, kept = ins.get(k, empty), p[on.get(k, np.zeros(len(p), bool))]
+        plus[k], only[k] = np.vstack([p, add]), np.vstack([kept, add])
+        plus_ins[k] = np.r_[np.zeros(len(p), bool), np.ones(len(add), bool)]
+        only_ins[k] = np.r_[np.zeros(len(kept), bool), np.ones(len(add), bool)]
+    detector = (d.preds, {k: np.zeros(len(p), bool) for k, p in d.preds.items()})
+    return dict(zip(VARIANTS, (detector, (plus, plus_ins), (only, only_ins))))
+
+
+def _loc_stats(iou: list[float], centre: list[float]) -> dict:
+    if not iou:
+        return {"tp": 0}
+    iou, centre = np.array(iou), np.array(centre)
+    return {"tp": int(len(iou)), "iou_mean": float(iou.mean()), "iou_median": float(np.median(iou)),
+            "centre_px_rmse": float(np.sqrt((centre ** 2).mean())), "centre_px_mean": float(centre.mean()),
+            "centre_px_median": float(np.median(centre)), "centre_px_p95": float(np.percentile(centre, 95)),
+            "centre_px_max": float(centre.max())}
+
+
+def localisation(gts: dict, preds: dict, is_inserted: dict, conf: float, es: dict) -> dict:
+    """{IoU@t: {"all" / "detector" / "inserted": stats}} over the true positives at conf (matched as
+    for P/R): IoU with their ground-truth box and centre distance to it (raw px). "all" = every
+    true positive of the set; "detector" / "inserted" = those from the detector / the factor graph."""
+    out = {}
+    for t in es["pr_iou_thresholds"]:
+        acc = {False: ([], []), True: ([], [])}
+        for k, g in gts.items():
+            p = preds.get(k, np.zeros((0, 6)))
+            for di, gi, iou in match_boxes(g, p, t, es["max_dets_per_image"]):
+                if p[di, 4] < conf:
+                    continue   # below the P/R confidence: not a true positive there
+                dc, gc = (p[di, :2] + p[di, 2:4]) / 2, (g[gi, 1:3] + g[gi, 3:5]) / 2
+                acc[bool(is_inserted[k][di])][0].append(iou)
+                acc[bool(is_inserted[k][di])][1].append(float(np.linalg.norm(dc - gc)))
+        out[f"IoU@{t:g}"] = {"all": _loc_stats(acc[False][0] + acc[True][0], acc[False][1] + acc[True][1]),
+                             "detector": _loc_stats(*acc[False]), "inserted": _loc_stats(*acc[True])}
+    return out
+
+
+def _scored(name: str, res: dict, gts: dict, preds: dict, is_inserted: dict, conf: float, es: dict) -> dict:
+    """A variant's metrics, box count and localisation. AP is kept for the detector alone: the
+    inserted boxes all carry the fixed backproj_score, so where they rank (and so AP) is set by
+    that constant, not by the tracks. The factor-graph variants are compared by P/R/F1."""
+    if name != VARIANTS[0]:
+        res = {k: v for k, v in res.items() if k not in ("average_precision", "per_class")}
+    return {**res, "boxes": int(sum(map(len, preds.values()))),
+            "localisation": localisation(gts, preds, is_inserted, conf, es)}
+
+
+def _px_stats(d: np.ndarray) -> dict:
+    if not len(d):
+        return {}
+    return {"rmse": float(np.sqrt((d ** 2).mean())), "mean": float(d.mean()), "median": float(np.median(d)),
+            "p95": float(np.percentile(d, 95)), "max": float(d.max())}
+
+
+def _size_stats(iou: list[float], ratio: list[float]) -> dict:
+    """ratio: predicted / ground-truth box scale (sqrt(w * h)) of each matched box."""
+    if not iou:
+        return {}
+    iou, ratio = np.array(iou), np.array(ratio)
+    err = np.abs(ratio - 1)
+    return {"iou_mean": float(iou.mean()), "size_err_median": float(np.median(err)),
+            "size_err_p95": float(np.percentile(err, 95)), "size_bias_median": float(np.median(ratio - 1))}
+
+
+def _centre_match(gts: dict, points: dict, tags: dict, gate: float) -> dict:
+    """Match each frame's points one-to-one to its ground-truth box centres (Hungarian on distance,
+    within gate px; class-agnostic). points: (N, 2) x, y, or (N, 4) xyxy boxes (matched by their
+    centre; their size is then scored too). {"gt": n, "all" / tag: {"points", "matched",
+    "precision", distance stats of the matched [, size stats]}, "all" also "recall"}."""
+    dist = {tag: [] for tag in ("all", *sorted({t for v in tags.values() for t in v}))}
+    size = {tag: ([], []) for tag in dist}   # (IoU, predicted / true box scale) of matched boxes
+    count = Counter()
+    n_gt = 0
+    for k, g in gts.items():
+        gc = (g[:, 1:3] + g[:, 3:5]) / 2
+        p, tg = points.get(k, np.zeros((0, 2))), tags.get(k, np.zeros(0, str))
+        n_gt += len(gc)
+        count.update(tg.tolist())
+        count["all"] += len(p)
+        if not len(gc) or not len(p):
+            continue
+        boxes = p.shape[1] == 4
+        pc = (p[:, :2] + p[:, 2:4]) / 2 if boxes else p[:, :2]
+        cost = np.linalg.norm(pc[:, None] - gc[None], axis=2)
+        if boxes:
+            ious = box_iou(p, g[:, 1:5])
+            scale_p = np.sqrt(np.prod(p[:, 2:4] - p[:, :2], axis=1))
+            scale_g = np.sqrt(np.prod(g[:, 3:5] - g[:, 1:3], axis=1))
+        for r, c in zip(*linear_sum_assignment(np.where(cost <= gate, cost, 1e9))):
+            if cost[r, c] <= gate:
+                for tag in ("all", tg[r]):
+                    dist[tag].append(cost[r, c])
+                    if boxes:
+                        size[tag][0].append(ious[r, c])
+                        size[tag][1].append(scale_p[r] / max(scale_g[c], 1e-9))
+    out = {"gt": n_gt}
+    for tag, d in dist.items():
+        d = np.array(d)
+        out[tag] = {"points": count[tag], "matched": int(len(d)),
+                    "precision": len(d) / count[tag] if count[tag] else None, **_px_stats(d), **_size_stats(*size[tag])}
+    out["all"]["recall"] = out["all"]["matched"] / n_gt if n_gt else None
+    return out
+
+
+def centre_errors(views: list[View], data: list[ViewData], inserted: list[dict], on_track: list[dict],
+                  tracks: list[Track3D], gate: float) -> dict:
+    """{view name or "ALL (pooled)": {point set: _centre_match}} for "detector" (box centres at the P/R
+    confidence), "+ factor graph" (plus the inserted box centres; tags detector / inserted),
+    "tracked detections" (the raw detector boxes the tracks were built from) and "track
+    reprojection" (every track in every frame; tags observed / bridged). The last two cover the
+    same objects and frames, so they show what the factor graph's smoothing does to the position."""
+    proj = project_tracks(tracks, views, data, with_observed=True)
+    sets = ("detector", "+ factor graph", "tracked detections", "track reprojection")
+    out, pooled_gt, pooled = {}, {}, {s: ({}, {}) for s in sets}
+    for view, d, ins, on, pr in zip(views, data, inserted, on_track, proj):
+        gts = {f.key: f.gt for f in d.ds.frames}
+        pooled_gt.update(gts)
+        per_set = {s: ({}, {}) for s in sets}
+        for k in gts:
+            p = d.preds.get(k, np.zeros((0, 6)))
+            det = p[p[:, 4] >= d.conf, :4]
+            add = ins.get(k, np.zeros((0, 6)))[:, :4]
+            tp = pr.get(k, np.zeros((0, 3)))
+            per_set["detector"][0][k], per_set["detector"][1][k] = det, np.full(len(det), "detector")
+            per_set["+ factor graph"][0][k] = np.vstack([det, add])
+            per_set["+ factor graph"][1][k] = np.r_[np.full(len(det), "detector"), np.full(len(add), "inserted")]
+            used = p[on.get(k, np.zeros(len(p), bool)), :4]
+            per_set["tracked detections"][0][k] = used
+            per_set["tracked detections"][1][k] = np.full(len(used), "detector")
+            per_set["track reprojection"][0][k] = tp[:, :2]
+            per_set["track reprojection"][1][k] = np.where(tp[:, 2] > 0, "observed", "bridged")
+        out[view.name] = {}
+        for s, (pts, tags) in per_set.items():
+            out[view.name][s] = _centre_match(gts, pts, tags, gate)
+            pooled[s][0].update(pts)
+            pooled[s][1].update(tags)
+    out["ALL (pooled)"] = {s: _centre_match(pooled_gt, pts, tags, gate) for s, (pts, tags) in pooled.items()}
+    return out
 
 
 def evaluate_2d(views: list[View], data: list[ViewData], inserted: list[dict], on_track: list[dict],
                 es: dict) -> dict:
-    """{view name or "ALL (pooled)": {variant: metrics + box counts}}."""
-    out, pooled_gt, pooled = {}, {}, {v: {} for v in VARIANTS}
+    """{view name or "ALL (pooled)": {variant: metrics + box counts + localisation}} (AP for the
+    detector variant only)."""
+    out, pooled_gt, pooled = {}, {}, {v: ({}, {}) for v in VARIANTS}
     for view, d, ins, on in zip(views, data, inserted, on_track):
         gts = {f.key: f.gt for f in d.ds.frames}
         pooled_gt.update(gts)
         out[view.name] = {}
-        for name, preds in _variants(d, ins, on).items():
-            pooled[name].update(preds)
-            out[view.name][name] = {**evaluate(gts, preds, d.conf, es), "boxes": int(sum(map(len, preds.values())))}
+        for name, (preds, is_ins) in _variants(d, ins, on).items():
+            pooled[name][0].update(preds)
+            pooled[name][1].update(is_ins)
+            out[view.name][name] = _scored(name, evaluate(gts, preds, d.conf, es), gts, preds, is_ins, d.conf, es)
     conf = data[0].conf
-    out["ALL (pooled)"] = {name: {**evaluate(pooled_gt, preds, conf, es), "boxes": int(sum(map(len, preds.values())))}
-                           for name, preds in pooled.items()}
+    out["ALL (pooled)"] = {name: _scored(name, evaluate(pooled_gt, preds, conf, es), pooled_gt, preds, is_ins, conf, es)
+                           for name, (preds, is_ins) in pooled.items()}
     return out
 
 
@@ -234,6 +389,7 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
         results["3d"] = evaluate_3d(tracks, gt_tracks, float(s["eval_match_distance"]))
         text = format_3d(results["3d"])
         (out_dir / "evaluation_3d.txt").write_text(text + "\n")
+        save_3d_charts(out_dir / "evaluation_3d.png", results["3d"])
         msgs.append(text)
     else:
         msgs.append("3D evaluation skipped: no ground-truth 3D points for this run.")
@@ -247,8 +403,11 @@ def evaluate_tracks(session, config: dict, tracks: list[Track3D], gt_tracks: lis
         has_gt = any(len(f.gt) for d in data for f in d.ds.frames)
         if s["evaluate_2d"] and has_gt:
             results["2d"] = evaluate_2d(session.views, data, inserted, on_track, es)
-            text = format_2d(results["2d"], data, float(s["backproj_score"]), s["conf_threshold"])
+            results["2d_centres"] = centre_errors(session.views, data, inserted, on_track, tracks, float(s["eval_match_px"]))
+            text = format_2d(results["2d"], data, float(s["backproj_score"]), s["conf_threshold"],
+                             results["2d_centres"], float(s["eval_match_px"]))
             (out_dir / "evaluation_2d.txt").write_text(text + "\n")
+            save_2d_charts(out_dir / "evaluation_2d.png", results["2d"], results["2d_centres"])
             msgs.append(text)
         elif s["evaluate_2d"]:
             msgs.append("2D evaluation skipped: this run has no ground-truth labels.")
